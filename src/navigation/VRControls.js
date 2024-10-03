@@ -410,6 +410,7 @@ export class VRControls extends EventDispatcher {
         this.intersectionCircle.visible = false;  // Hide the intersection circle when squeeze ends
     }
 
+/*
 	// Update the ray dynamically during the squeeze
 	updateRay() {
 		if (!this.isSqueezing || !this.squeezingController) {
@@ -439,23 +440,108 @@ export class VRControls extends EventDispatcher {
 		this.rayLine = new THREE.Line(geometry, material);
 		this.viewer.sceneVR.add(this.rayLine);  // Add the updated line to the scene
 
-		// Potree specific raycasting
-		const ray = new THREE.Ray(rayOrigin, direction);
 
-		// Use Potree's octree raycasting for point cloud intersection
-		const raycaster = new Potree.PointCloudOctreeRaycaster();
-		const intersects = raycaster.intersectPointClouds(ray, this.pointClouds);  // Assuming this.pointClouds is defined and contains Potree point clouds
+		// ----- Point Cloud Picking Logic -----
+		const raycaster = new THREE.Raycaster();
+		raycaster.ray.origin.copy(worldPosition);  // Controller's position
+		raycaster.ray.direction.copy(direction);   // Controller's direction
 
-		// Check for intersections and update intersection circle
-		if (intersects.length > 0) {
-			const intersectionPoint = intersects[0].point;
-			this.intersectionCircle.position.copy(intersectionPoint);
-			this.intersectionCircle.visible = true;  // Make the circle visible
+		// Access the renderer from your viewer setup.
+		const renderer = (this.viewer.renderer && this.viewer.renderer.renderer) ? this.viewer.renderer.renderer : this.viewer.renderer;
+		const activeCamera = this.viewer.scene.getActiveCamera();  // Get the correct active camera
+
+		console.log('Pointcloud:', this.viewer.scene.pointclouds);
+		
+		if (renderer && activeCamera) {
+			const pickPoint = this.viewer.scene.pointclouds[0].pick(
+				renderer, 
+				activeCamera, 
+				raycaster.ray
+			);
+			
+			if (pickPoint) {
+				console.log('Picked point:', pickPoint.position);
+			} else {
+				console.log('No point picked');
+			}
 		} else {
-			this.intersectionCircle.visible = false;  // Hide the circle if no intersection
+			console.error('Renderer or Camera not defined');
 		}
-	}
 
+		
+	}
+*/
+
+	updateRay() {
+		if (!this.isSqueezing || !this.squeezingController) {
+			return;
+		}
+
+		// Get the controller's world position and direction
+		const worldPosition = new THREE.Vector3();
+		this.squeezingController.getWorldPosition(worldPosition);
+
+		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.squeezingController.quaternion);
+		direction.normalize();
+
+		// Visualize the dynamic ray (optional)
+		const rayOrigin = worldPosition.clone();
+		const rayDirection = direction.clone().normalize().multiplyScalar(5);  // Extend for better visibility
+		const endPoint = rayOrigin.clone().add(rayDirection);
+
+		// Update ray visualization (optional)
+		if (this.rayLine) {
+			this.viewer.sceneVR.remove(this.rayLine);
+		}
+		const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
+		const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Green line
+		this.rayLine = new THREE.Line(geometry, material);
+		this.viewer.sceneVR.add(this.rayLine);
+
+		// Initialize raycaster for intersection detection
+		const raycaster = new THREE.Raycaster(worldPosition, direction);
+
+		let closestPoint = null;
+		let closestDistance = Infinity;
+
+			// Loop through each point cloud in this.pointClouds
+		for (let pc of this.pointClouds) {
+			// Assuming the point cloud has a method to access individual points or bounding boxes
+			let points = pc.points || pc.boundingBox;  // Modify this line to suit your structure (e.g., pc.boundingBox)
+			
+			if (!points) {
+				console.warn("Point cloud has no points or geometry structure:", pc);
+				continue;
+			}
+
+			// Iterate over each point (assuming points is an array or similar structure)
+			for (let i = 0; i < points.length; i++) {
+				let point = points[i];  // Assuming point is a Vector3 or contains position data
+
+				if (point instanceof THREE.Vector3) {
+					// Use raycaster to check the distance between the ray and the point
+					const distance = raycaster.ray.distanceToPoint(point);
+
+					// Update the closest point if this one is closer
+					if (distance < closestDistance) {
+						closestDistance = distance;
+						closestPoint = point;
+					}
+				} else {
+					console.warn("Point is not a THREE.Vector3:", point);
+				}
+			}
+		}
+
+		// Check for intersections with point cloud points
+		if (closestPoint && closestDistance < 0.05) {  // 0.05 is a threshold to detect close points
+			this.intersectionCircle.position.copy(closestPoint);
+			this.intersectionCircle.visible = true;  // Show intersection circle when intersection occurs
+		} else {
+			this.intersectionCircle.visible = false;  // Hide if no intersection
+	    }
+	}
+	
 
 	createSlider(label, min, max){
 
