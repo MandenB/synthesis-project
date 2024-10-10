@@ -55,7 +55,8 @@
         });
 
         // Load and add point cloud to scene
-        Potree.loadPointCloud("https://localhost:8443/potree2/pointclouds/vienna/metadata.json", "vienna", e => {
+        // Potree.loadPointCloud("https://145.94.242.206:8443/potree2/pointclouds/vienna/metadata.json", "vienna", e => {
+		Potree.loadPointCloud("https://localhost:8443/potree2/pointclouds/vienna/metadata.json", "vienna", e => {
             const scene = viewer.scene;
             const pointcloud = e.pointcloud;
             
