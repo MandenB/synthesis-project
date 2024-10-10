@@ -61,7 +61,7 @@
 		});
 		
 		// Load and add point cloud to scene
-		Potree.loadPointCloud("https://potree.org/pointclouds/dechen_cave/metadata.json", "Dechen Cave", e => {
+		Potree.loadPointCloud("https://localhost:8443/synthesis-project/pointclouds/dechen_cave/metadata.json", "Dechen Cave", e => {
 			let scene = viewer.scene;
 			let pointcloud = e.pointcloud;
 			
