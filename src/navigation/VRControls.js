@@ -63,7 +63,7 @@ function computeMove(vrControls, controller){
 	let p2 = vrControls.toScene(controller.position.clone().add(move));
 
 	move = p2.clone().sub(p1);
-	
+
 	return move;
 };
 
@@ -106,7 +106,7 @@ class FlyMode{
 			this.dbgLabel.visible = false;
 		}
 	}
-	
+
 	end(){
 
 	}
@@ -156,7 +156,7 @@ class FlyMode{
 			this.dbgLabel.position.copy(primary.position);
 		}
 	}
-	};
+};
 
 class TranslationMode{
 
@@ -170,7 +170,7 @@ class TranslationMode{
 		this.controller = vrControls.triggered.values().next().value;
 		this.startPos = vrControls.node.position.clone();
 	}
-	
+
 	end(vrControls){
 
 	}
@@ -203,7 +203,7 @@ class RotScaleMode{
 	start(vrControls){
 		if(!this.line){
 			this.line = Potree.Utils.debugLine(
-				vrControls.viewer.sceneVR, 
+				vrControls.viewer.sceneVR,
 				new THREE.Vector3(0, 0, 0),
 				new THREE.Vector3(0, 0, 0),
 				0xffff00,
@@ -241,7 +241,7 @@ class RotScaleMode{
 		let angleStart = new THREE.Vector2(start_c1_c2.x, start_c1_c2.z).angle();
 		let angleEnd = new THREE.Vector2(end_c1_c2.x, end_c1_c2.z).angle();
 		let angleDiff = angleEnd - angleStart;
-		
+
 		let scale = d2 / d1;
 
 		let node = this.startState.clone();
@@ -274,7 +274,7 @@ class RotScaleMode{
 		{
 			let scale = vrControls.node.scale.x;
 			let camVR = vrControls.viewer.renderer.xr.getCamera(fakeCam);
-			
+
 			let vrPos = camVR.getWorldPosition(new THREE.Vector3());
 			let vrDir = camVR.getWorldDirection(new THREE.Vector3());
 			let vrTarget = vrPos.clone().add(vrDir.multiplyScalar(scale));
@@ -306,289 +306,166 @@ class RotScaleMode{
 
 
 export class VRControls extends EventDispatcher {
+	constructor(viewer) {
+		super(viewer);
+		this.viewer = viewer;
+		this.rayLength = 2; // Initialize rayLength to 2
+		this.maxRayLength = 10; // Initialize maxRayLength
 
-    constructor(viewer) {
-        super(viewer);
-        this.viewer = viewer;
+		viewer.addEventListener("vr_start", this.onStart.bind(this));
+		viewer.addEventListener("vr_end", this.onEnd.bind(this));
 
-        viewer.addEventListener("vr_start", this.onStart.bind(this));
-        viewer.addEventListener("vr_end", this.onEnd.bind(this));
+		this.node = new THREE.Object3D();
+		this.node.up.set(0, 0, 1);
+		this.triggered = new Set();
 
-        this.node = new THREE.Object3D();
-        this.node.up.set(0, 0, 1);
-        this.triggered = new Set();
+		let xr = viewer.renderer.xr;
 
-        let xr = viewer.renderer.xr;
+		const light = new THREE.PointLight(0xffffff, 5, 0, 1);
+		light.position.set(0, 2, 0);
+		this.viewer.sceneVR.add(light);
 
-        // Lights setup
-        const light = new THREE.PointLight(0xffffff, 5, 0, 1);
-        light.position.set(0, 2, 0);
-        this.viewer.sceneVR.add(light);
+		this.menu = null;
+		this.pointClouds = viewer.scene.pointclouds;
+		this.intersectionCircle = this.createIntersectionCircle();
 
-        this.menu = null;
-        this.pointClouds = viewer.scene.pointclouds; // Initialize point clouds here
-        this.intersectionCircle = this.createIntersectionCircle(); // Create intersection circle
+		const controllerModelFactory = new XRControllerModelFactory();
+		this.setupController(xr, controllerModelFactory, 0);
+		this.setupController(xr, controllerModelFactory, 1);
 
-        const controllerModelFactory = new XRControllerModelFactory();
-        this.setupController(xr, controllerModelFactory, 0);
-        this.setupController(xr, controllerModelFactory, 1);
+		this.mode_fly = new FlyMode();
+		this.mode_translate = new TranslationMode();
+		this.mode_rotScale = new RotScaleMode();
+		this.setMode(this.mode_fly);
+	}
 
-        this.mode_fly = new FlyMode();
-        this.mode_translate = new TranslationMode();
-        this.mode_rotScale = new RotScaleMode();
-        this.setMode(this.mode_fly);
-    }
+	setupController(xr, controllerModelFactory, index) {
+		let controller = xr.getController(index);
+		let grip = xr.getControllerGrip(index);
 
-    setupController(xr, controllerModelFactory, index) {
-        let controller = xr.getController(index);
-        let grip = xr.getControllerGrip(index);
+		grip.add(controllerModelFactory.createControllerModel(grip));
+		this.viewer.sceneVR.add(grip);
 
-        grip.add(controllerModelFactory.createControllerModel(grip));
-        this.viewer.sceneVR.add(grip);
+		let sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshNormalMaterial());
+		sphere.scale.set(0.005, 0.005, 0.005);
+		controller.add(sphere);
+		controller.visible = true;
+		this.viewer.sceneVR.add(controller);
 
-        let sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshNormalMaterial());
-        sphere.scale.set(0.005, 0.005, 0.005);
-        controller.add(sphere);
-        controller.visible = true;
-        this.viewer.sceneVR.add(controller);
+		let lineGeometry = new LineGeometry();
+		lineGeometry.setPositions([0, 0, -0.15, 0, 0, 0.05]);
+		let lineMaterial = new LineMaterial({ color: 0xff0000, linewidth: 2, resolution: new THREE.Vector2(1000, 1000) });
+		const line = new Line2(lineGeometry, lineMaterial);
+		controller.add(line);
 
-        // Setup ray line
-        let lineGeometry = new LineGeometry();
-        lineGeometry.setPositions([0, 0, -0.15, 0, 0, 0.05]);
-        let lineMaterial = new LineMaterial({ color: 0xff0000, linewidth: 2, resolution: new THREE.Vector2(1000, 1000) });
-        const line = new Line2(lineGeometry, lineMaterial);
-        controller.add(line);
+		controller.addEventListener('connected', (event) => {
+			const xrInputSource = event.data;
+			controller.inputSource = xrInputSource;
+			if (index === 1) this.initMenu(controller);
+		});
 
-        controller.addEventListener('connected', (event) => {
-            const xrInputSource = event.data;
-            controller.inputSource = xrInputSource;
-            if (index === 1) this.initMenu(controller);
-        });
+		controller.addEventListener('selectstart', () => { this.onTriggerStart(controller) });
+		controller.addEventListener('selectend', () => { this.onTriggerEnd(controller) });
+		controller.addEventListener('squeezestart', () => { this.onSqueezeStart(controller) });
+		controller.addEventListener('squeezeend', () => { this.onSqueezeEnd(controller) });
 
-        controller.addEventListener('selectstart', () => { this.onTriggerStart(controller) });
-        controller.addEventListener('selectend', () => { this.onTriggerEnd(controller) });
-        controller.addEventListener('squeezestart', () => { this.onSqueezeStart(controller) });
-        controller.addEventListener('squeezeend', () => { this.onSqueezeEnd(controller) });
+		if (index === 0) {
+			this.cPrimary = controller;
+		} else {
+			this.cSecondary = controller;
+		}
 
-        // Store reference to primary/secondary controller
-        if (index === 0) {
-            this.cPrimary = controller;
-        } else {
-            this.cSecondary = controller;
-        }
-		
-		this.isSqueezing = false; // Track if the controller is squeezing
-        this.squeezingController = null; // Store the currently squeezing controller
-    }
+		this.isSqueezing = false;
+		this.squeezingController = null;
+	}
 
-    createIntersectionCircle() {
-        const geometry = new THREE.CircleGeometry(0.5, 32); // Circle with radius 0.05
-        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color
-        const circle = new THREE.Mesh(geometry, material);
-        circle.visible = true; // Start as invisible
-        this.viewer.sceneVR.add(circle); // Make sure to add it to the VR scene
-        return circle;
-    }
+	createIntersectionCircle() {
+		const geometry = new THREE.CircleGeometry(0.5, 32);
+		const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+		const circle = new THREE.Mesh(geometry, material);
+		circle.visible = true;
+		this.viewer.sceneVR.add(circle);
+		return circle;
+	}
 
-// Method called when squeeze starts
-    onSqueezeStart(controller) {
-        console.log("Squeeze activated", controller);
+	onSqueezeStart(controller) {
+		console.log("Squeeze activated", controller);
+		this.isSqueezing = true;
+		this.squeezingController = controller;
+		this.updateRay();
+	}
 
-        this.isSqueezing = true;  // Set squeezing flag to true
-        this.squeezingController = controller;  // Track the squeezing controller
+	onSqueezeEnd(controller) {
+		console.log("Squeeze released", controller);
+		this.isSqueezing = false;
+		this.squeezingController = null;
+		this.intersectionCircle.visible = false;
+	}
 
-        // Optionally, you can call the update method immediately for initial ray setup
-        this.updateRay();
-    }
-
-    // Method called when squeeze ends
-    onSqueezeEnd(controller) {
-        console.log("Squeeze released", controller);
-
-        this.isSqueezing = false;  // Set squeezing flag to false
-        this.squeezingController = null;  // Clear the squeezing controller
-        this.intersectionCircle.visible = false;  // Hide the intersection circle when squeeze ends
-    }
-
-
-	toScene2(vec){
-		let camVR = this.getCamera();
-
-		let mat = camVR.matrixWorld;
+	toControllerScene(vec, controller) {
+		if (!controller) {
+			console.error("Controller parameter is required.");
+			return null;
+		}
+		let controllerCamera = this.getControllerCamera(controller);
+		let mat = controllerCamera.matrixWorld;
 		let result = vec.clone().applyMatrix4(mat);
-
 		return result;
 	}
 
-	toVR(vec){
-		let camVR = this.getCamera();
-
-		let mat = camVR.matrixWorld.clone();
+	toControllerVR(vec, controller) {
+		let controllerCamera = this.getControllerCamera(controller);
+		let mat = controllerCamera.matrixWorld;
 		mat.invert();
 		let result = vec.clone().applyMatrix4(mat);
-
 		return result;
 	}
 
-	toVR2(vec){
-		let camVR = this.getCamera();
-
-
-
-		let mat = camVR.matrixWorld.clone();
-		mat.invert();
-		let result = vec.clone().applyMatrix4(mat);
-
-		return result;
-	}
-
-	// Update the ray dynamically during the squeeze
 	updateRay() {
 		if (!this.isSqueezing || !this.squeezingController) {
 			return;
 		}
 
-		const worldPosition = new THREE.Vector3();
-		this.squeezingController.getWorldPosition(worldPosition);
+		const controllerPosition = new THREE.Vector3();
+		this.squeezingController.getWorldPosition(controllerPosition);
 
-		const transformedPosition = this.toScene2(worldPosition);
+		const transformedPosition = this.toControllerScene(controllerPosition, this.squeezingController);
 
 		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.squeezingController.quaternion).normalize();
+		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
-		const transformedDirection = this.toScene2(direction);
+		const rayOrigin = transformedPosition.clone();
 
-		// Visualize the ray (for debugging)
-		const rayOrigin = this.toVR(transformedPosition.clone());
-		const rayDirection = direction.clone().multiplyScalar(5);  // Extend for visibility
+		const pad = this.squeezingController.inputSource.gamepad;
+		const axes = pad.axes;
+		const joystickValue = axes.length >= 2 ? axes[1] : 0;
+		this.rayLength = THREE.MathUtils.clamp(this.rayLength + joystickValue * 0.1, 0, this.maxRayLength);
+
+		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
 		const endPoint = rayOrigin.clone().add(rayDirection);
+		console.log("Ray Origin:", rayOrigin);
 
-		// Update the ray visualization
 		if (this.rayLine) {
-			this.viewer.sceneVR.remove(this.rayLine);  // Remove the old line from the scene
-		}
-
-		const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
-		const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });  // Green line
-		this.rayLine = new THREE.Line(geometry, material);
-		this.viewer.sceneVR.add(this.rayLine);  // Add the updated line to the scene
-
-		// ---- Point Cloud Picking Logic ----
-		const raycaster = new THREE.Raycaster();
-		raycaster.ray.origin.copy(transformedPosition);  // Controller's transformed position
-		raycaster.ray.direction.copy(direction);  // Controller's transformed direction
-
-		const renderer = this.viewer.renderer;
-		const activeCamera = this.viewer.scene.getActiveCamera();  // Get the correct active camera
-
-		const array2 = [];
-
-		if (renderer && activeCamera) {
-			const pickPoint = this.viewer.scene.pointclouds[0].pick(this.viewer, activeCamera, raycaster.ray);
-			//const pickPoint = raycaster.intersectObjects(this.viewer.scene.pointclouds[0].children, true, array2);
-
-				if (pickPoint) {
-					console.log('Picked point:', pickPoint)
-					//console.log('Picked point:', array2[0].point);
-					// pickPoint.object.material.color.set(0xff0000);  // Change the color of the picked point
-
-					// Create a new geometry and material
-					const geometry = new THREE.SphereGeometry(0.1, 32, 32);  // Example: Sphere with radius 0.1
-					const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });  // Example: Green color
-
-					// Create a new mesh
-					const mesh = new THREE.Mesh(geometry, material);
-
-					// Set the position of the mesh to the picked point's position
-					const position = this.toVR(pickPoint.position);
-					console.log('transformed position sphere:', position);
-					mesh.position.copy(pickPoint.position);
-					console.log('Mesh point:', mesh.position);
-					//const testie = this.viewer.scene.pointclouds[0].worldToLocal(pickPoint);
-					//console.log('testie:', testie);
-
-					// Add the mesh to the scene
-					this.viewer.scene.scene.add(mesh);
-				} else {
-					console.log('No point picked');
-				}
+			this.rayLine.geometry.setFromPoints([rayOrigin, endPoint]);
 		} else {
-			console.error('Renderer or Camera not defined');
+			const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
+			const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+			this.rayLine = new THREE.Line(geometry, material);
+			this.viewer.scene.scene.add(this.rayLine);
 		}
+
+		if (!this.raySphere) {
+			const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+			const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+			this.raySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+			this.viewer.scene.scene.add(this.raySphere);
+		}
+		this.raySphere.position.copy(endPoint);
+
+		console.log('Ray length:', this.rayLength);
 	}
 
 
-/*
-	updateRay() {
-		if (!this.isSqueezing || !this.squeezingController) {
-			return;
-		}
-
-		// Get the controller's world position and direction
-		const worldPosition = new THREE.Vector3();
-		this.squeezingController.getWorldPosition(worldPosition);
-
-		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.squeezingController.quaternion);
-		direction.normalize();
-
-		// Visualize the dynamic ray (optional)
-		const rayOrigin = worldPosition.clone();
-		const rayDirection = direction.clone().normalize().multiplyScalar(5);  // Extend for better visibility
-		const endPoint = rayOrigin.clone().add(rayDirection);
-
-		// Update ray visualization (optional)
-		if (this.rayLine) {
-			this.viewer.sceneVR.remove(this.rayLine);
-		}
-		const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
-		const material = new THREE.LineBasicMaterial({ color: 0x00ff00 }); // Green line
-		this.rayLine = new THREE.Line(geometry, material);
-		this.viewer.sceneVR.add(this.rayLine);
-
-		// Initialize raycaster for intersection detection
-		const raycaster = new THREE.Raycaster(worldPosition, direction);
-
-		let closestPoint = null;
-		let closestDistance = Infinity;
-
-			// Loop through each point cloud in this.pointClouds
-		for (let pc of this.pointClouds) {
-			// Assuming the point cloud has a method to access individual points or bounding boxes
-			let points = pc.points || pc.boundingBox;  // Modify this line to suit your structure (e.g., pc.boundingBox)
-			
-			if (!points) {
-				console.warn("Point cloud has no points or geometry structure:", pc);
-				continue;
-			}
-
-			// Iterate over each point (assuming points is an array or similar structure)
-			for (let i = 0; i < points.length; i++) {
-				let point = points[i];  // Assuming point is a Vector3 or contains position data
-
-				if (point instanceof THREE.Vector3) {
-					// Use raycaster to check the distance between the ray and the point
-					const distance = raycaster.ray.distanceToPoint(point);
-
-					// Update the closest point if this one is closer
-					if (distance < closestDistance) {
-						closestDistance = distance;
-						closestPoint = point;
-					}
-				} else {
-					console.warn("Point is not a THREE.Vector3:", point);
-				}
-			}
-		}
-
-		// Check for intersections with point cloud points
-		if (closestPoint && closestDistance < 0.05) {  // 0.05 is a threshold to detect close points
-			this.intersectionCircle.position.copy(closestPoint);
-			this.intersectionCircle.visible = true;  // Show intersection circle when intersection occurs
-		} else {
-			this.intersectionCircle.visible = false;  // Hide if no intersection
-	    }
-	}
-	
-*/
 	createSlider(label, min, max){
 
 		let sg = new THREE.SphereGeometry(1, 8, 8);
@@ -627,7 +504,7 @@ export class VRControls extends EventDispatcher {
 		return node;
 	}
 
-	createInfo(){ 
+	createInfo(){
 
 		let texture = new THREE.TextureLoader().load(`${Potree.resourcePath}/images/vr_controller_help.jpg`);
 		let plane = new THREE.PlaneBufferGeometry(1, 1, 1, 1);
@@ -719,7 +596,7 @@ export class VRControls extends EventDispatcher {
 
 			controller.start = start;
 		}
-		
+
 		this.mode = mode;
 		this.mode.start(this);
 	}
@@ -747,15 +624,15 @@ export class VRControls extends EventDispatcher {
 			this.setMode(this.mode_rotScale);
 		}
 	}
-	
-	
+
+
 	onStart(){
 		// Define your fixed XYZ position here
 		let fixedPosition = new THREE.Vector3(5700, 339900, 7); // Replace with your desired x, y, z values
 
 		// You don't need to compute position from the viewer.scene.view, just use the fixed position
 		this.node.position.copy(fixedPosition);
-		
+
 		// You can set a fixed direction for the camera to look at, or target a specific point
 		let fixedTarget = new THREE.Vector3(0, 0, 0); // Replace with where you want the camera to look
 		this.node.lookAt(fixedTarget);
@@ -772,7 +649,7 @@ export class VRControls extends EventDispatcher {
 
 
 	onEnd(){
-		
+
 	}
 
 
@@ -799,7 +676,7 @@ export class VRControls extends EventDispatcher {
 		// Set your custom z-value here
 		camera.position.copy(this.node.position);
 		camera.position.z = 7; // Set this to your desired value
-		
+
 		camera.rotation.copy(this.node.rotation);
 		camera.scale.set(scale, scale, scale);
 		camera.updateMatrix();
@@ -810,20 +687,60 @@ export class VRControls extends EventDispatcher {
 		return camera;
 	}
 
+	getControllerCamera(controller) {
+		// Ensure the controller is valid
+		if (!controller) {
+			console.error("Controller parameter is required.");
+			return null; // or handle the error as needed
+		}
+
+		// Create a new PerspectiveCamera for the controller
+		let controllerCamera = new THREE.PerspectiveCamera();
+
+		// Set the near and far clipping planes
+		controllerCamera.near = 0.1; // Near clipping plane
+		controllerCamera.far = 1000;  // Far clipping plane
+
+		// Set the up direction of the controller camera
+		controllerCamera.up.set(0, 0, 1); // Adjust based on your VR setup
+
+		// Set the camera to look in the direction of the controller
+		controllerCamera.lookAt(new THREE.Vector3(0, 0, -1)); // Get direction from controller
+
+		// Update the camera's transformation matrix
+		controllerCamera.updateMatrix();
+
+		// Set the position and rotation from the controller
+		controllerCamera.position.copy(this.node.position.clone().sub(controller.position));
+		controllerCamera.rotation.copy(controller.rotation); // Use controller's rotation
+
+		// Set scale if needed (controllers typically are not scaled like cameras)
+		controllerCamera.scale.set(1, 1, 1); // Standard scale for controller cameras
+
+		// Update matrix world for the controller camera
+		controllerCamera.updateMatrixWorld();
+
+		// Optional: Disable automatic matrix updates if needed
+		controllerCamera.matrixAutoUpdate = true;
+
+		return controllerCamera; // Return the configured controller camera
+	}
+
+
 	update(delta){
 
-		
+
 
 		// if(this.mode === this.mode_fly){
-			// let ray = new THREE.Ray(origin, direction);
-			
-			// for(let object of this.selectables){
+		// let ray = new THREE.Ray(origin, direction);
 
-				// if(object.intersectsRay(ray)){
-					// object.onHit(ray);
-				// }
+		// for(let object of this.selectables){
 
-			// }
+		// if(object.intersectsRay(ray)){
+		// object.onHit(ray);
+		// }
+
+		// }
 
 		// }
 		this.updateRay();
