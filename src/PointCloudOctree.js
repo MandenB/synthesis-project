@@ -734,6 +734,8 @@ export class PointCloudOctree extends PointCloudTree {
 	 *
 	 */
 	pick(viewer, camera, ray, params = {}){
+		console.log('Initial ray:', ray);
+		console.log('Initial camera position:', camera.position);
 
 		let renderer = viewer.renderer;
 		let pRenderer = viewer.pRenderer;
@@ -754,6 +756,8 @@ export class PointCloudOctree extends PointCloudTree {
 		let pointSize = getVal(params.pointSize, this.material.size);
 
 		let nodes = this.nodesOnRay(this.visibleNodes, ray);
+
+		console.log('Nodes on ray:', nodes);
 
 		if (nodes.length === 0) {
 			return null;
@@ -840,6 +844,7 @@ export class PointCloudOctree extends PointCloudTree {
 			let tmp = this.material;
 			this.material = pickMaterial;
 
+			console.log('ray before rendering:', ray);
 			pRenderer.renderOctree(this, nodes, camera, pickState.renderTarget);
 
 			this.material = tmp;

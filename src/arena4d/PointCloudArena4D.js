@@ -278,6 +278,7 @@ export class PointCloudArena4D extends PointCloudTree{
 		let nodesOnRay = [];
 
 		let _ray = ray.clone();
+		console.log('pick ray', _ray);
 		for (let i = 0; i < nodes.length; i++) {
 			let node = nodes[i];
 			let sphere = node.getBoundingSphere().clone().applyMatrix4(node.sceneNode.matrixWorld);
@@ -295,11 +296,13 @@ export class PointCloudArena4D extends PointCloudTree{
 	}
 
 	pick(viewer, camera, ray, params = {}){
+		console.log('used pointcloudarena4d pick');
 
 		let renderer = viewer.renderer;
 		let pRenderer = viewer.pRenderer;
 
 		performance.mark("pick-start");
+		console.log('pick start');
 
 		let getVal = (a, b) => a !== undefined ? a : b;
 
