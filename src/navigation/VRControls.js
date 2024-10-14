@@ -20,6 +20,15 @@ function toScene(vec, ref){
 	return result;
 };
 
+	function toScene2(vec){
+		let camVR = this.getCamera();
+
+		let mat = camVR.matrixWorld;
+		let result = vec.clone().applyMatrix4(mat);
+
+		return result;
+	};
+
 function computeMove(vrControls, controller){
 
 	if(!controller || !controller.inputSource || !controller.inputSource.gamepad){
@@ -66,6 +75,22 @@ function computeMove(vrControls, controller){
 
 	return move;
 };
+
+function createPositionLabel(annotation) {
+    // Get the position of the annotation
+    const { x, y, z } = annotation.position;
+
+    // Create a new TextSprite with the position text
+    const label = new Potree.TextSprite(`(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`);
+
+    // Position the label near the annotation point
+    label.position.copy(annotation.position); // Or adjust the position as needed for visibility
+
+    // Add the label to the scene
+    viewer.scene.add(label);
+
+    return label;
+}
 
 function computeRotation(vrControls, controller){
 
@@ -312,6 +337,12 @@ export class VRControls extends EventDispatcher {
 		this.rayLength = 2; // Initialize rayLength to 2
 		this.maxRayLength = 10; // Initialize maxRayLength
 
+		this.circles = []; // Array to keep track of circles
+        this.currentCircle = null; // Reference to the currently active circle
+
+		// this.isCircleLocked = false; // Boolean to track if the circle is locked
+        // this.staticCircle = new THREE.Mesh(new THREE.CircleGeometry(0.5, 32), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+
 		viewer.addEventListener("vr_start", this.onStart.bind(this));
 		viewer.addEventListener("vr_end", this.onEnd.bind(this));
 
@@ -369,6 +400,7 @@ export class VRControls extends EventDispatcher {
 		controller.addEventListener('squeezestart', () => { this.onSqueezeStart(controller) });
 		controller.addEventListener('squeezeend', () => { this.onSqueezeEnd(controller) });
 
+
 		if (index === 0) {
 			this.cPrimary = controller;
 		} else {
@@ -380,7 +412,7 @@ export class VRControls extends EventDispatcher {
 	}
 
 	createIntersectionCircle() {
-		const geometry = new THREE.CircleGeometry(0.5, 32);
+		const geometry = new THREE.SphereGeometry(0.05, 32, 32)
 		const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 		const circle = new THREE.Mesh(geometry, material);
 		circle.visible = true;
@@ -401,6 +433,9 @@ export class VRControls extends EventDispatcher {
 		this.squeezingController = null;
 		this.intersectionCircle.visible = false;
 	}
+
+
+
 
 	toControllerScene(vec, controller) {
 		if (!controller) {
@@ -434,7 +469,7 @@ export class VRControls extends EventDispatcher {
 		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.squeezingController.quaternion).normalize();
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
-		const rayOrigin = transformedPosition.clone();
+		const rayOrigin = controllerPosition;
 
 		const pad = this.squeezingController.inputSource.gamepad;
 		const axes = pad.axes;
@@ -451,14 +486,14 @@ export class VRControls extends EventDispatcher {
 			const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
 			const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
 			this.rayLine = new THREE.Line(geometry, material);
-			this.viewer.scene.scene.add(this.rayLine);
+			this.viewer.sceneVR.add(this.rayLine);
 		}
 
 		if (!this.raySphere) {
 			const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 			const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 			this.raySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-			this.viewer.scene.scene.add(this.raySphere);
+			this.viewer.sceneVR.add(this.raySphere);
 		}
 		this.raySphere.position.copy(endPoint);
 
@@ -558,14 +593,7 @@ export class VRControls extends EventDispatcher {
 		window.vrSlider = nSlider;
 	}
 
-	toScene(vec){
-		let camVR = this.getCamera();
 
-		let mat = camVR.matrixWorld;
-		let result = vec.clone().applyMatrix4(mat);
-
-		return result;
-	}
 
 	toVR(vec){
 		let camVR = this.getCamera();
@@ -601,8 +629,35 @@ export class VRControls extends EventDispatcher {
 		this.mode.start(this);
 	}
 
-	onTriggerStart(controller){
-		this.triggered.add(controller);
+	onTriggerStart(controller) {
+        console.log("Trigger pressed, creating new circle", controller);
+
+        // Create a new circle mesh
+        const newCircle = new THREE.Mesh(
+            new THREE.CircleGeometry(0.05, 32, 32),
+            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+
+
+        newCircle.position.copy(this.raySphere.position);
+
+        // Add the new circle to the scene and to the circles array
+        this.viewer.sceneVR.add(newCircle);
+        this.circles.push(newCircle);
+		// Create a label for the circle displaying its position
+		// Create a clone of the circle's position and transform it
+    	// const transformedPosition = toScene2(newCircle.position.clone());
+
+    	// Create label text using transformed position
+    	// const labelText = `(${transformedPosition.x.toFixed(2)}, ${transformedPosition.y.toFixed(2)}, ${transformedPosition.z.toFixed(2)})`;
+    	const labelText = `(${newCircle.position.x.toFixed(2)}, ${newCircle.position.y.toFixed(2)}, ${newCircle.position.z.toFixed(2)})`;
+    	const circleLabel = new Potree.TextSprite(labelText);
+
+    	// Position the label slightly above the circle
+    	circleLabel.position.copy(newCircle.position);
+    	circleLabel.position.y += 0.1; // Adjust height as needed for visibility
+		circleLabel.scale.set(0.1, 0.1, 1.0);
+		this.viewer.sceneVR.add(circleLabel);
 
 		if(this.triggered.size === 0){
 			this.setMode(this.mode_fly);
@@ -611,6 +666,8 @@ export class VRControls extends EventDispatcher {
 		}else if(this.triggered.size === 2){
 			this.setMode(this.mode_rotScale);
 		}
+
+
 	}
 
 	onTriggerEnd(controller){
@@ -743,6 +800,9 @@ export class VRControls extends EventDispatcher {
 		// }
 
 		// }
+		if (this.isCircleLocked) {
+            return;
+        }
 		this.updateRay();
 		this.mode.update(this, delta);
 	}
