@@ -470,7 +470,7 @@ export class VRControls extends EventDispatcher {
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
 		const rayOrigin = controllerPosition;
-
+		//stuck: ray length adjustment doesnt work yet? i did not test, bart wrote this
 		const pad = this.squeezingController.inputSource.gamepad;
 		const axes = pad.axes;
 		const joystickValue = axes.length >= 2 ? axes[1] : 0;
@@ -490,6 +490,7 @@ export class VRControls extends EventDispatcher {
 		}
 
 		if (!this.raySphere) {
+			//stuck: displaying as flat discs instead of 3d spheres
 			const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 			const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 			this.raySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
@@ -646,7 +647,9 @@ export class VRControls extends EventDispatcher {
         this.circles.push(newCircle);
 		// Create a label for the circle displaying its position
 		// Create a clone of the circle's position and transform it
-    	// const transformedPosition = toScene2(newCircle.position.clone());
+
+		//stuck: when changing the position in the label to the world coords, it doesnt show anymore
+		// const transformedPosition = toScene2(newCircle.position.clone());
 
     	// Create label text using transformed position
     	// const labelText = `(${transformedPosition.x.toFixed(2)}, ${transformedPosition.y.toFixed(2)}, ${transformedPosition.z.toFixed(2)})`;
