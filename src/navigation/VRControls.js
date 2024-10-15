@@ -451,7 +451,6 @@ export class VRControls extends EventDispatcher {
 		const rayOrigin = controllerPosition.clone();
 		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
 		const endPoint = rayOrigin.clone().add(rayDirection);
-		console.log("Ray Origin:", rayOrigin);
 
 		if (this.rayLine) {
 			this.rayLine.geometry.setFromPoints([rayOrigin, endPoint]);
@@ -463,14 +462,13 @@ export class VRControls extends EventDispatcher {
 		}
 
 		if (!this.raySphere) {
-			const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+			const sphereGeometry = new THREE.SphereGeometry(0.01, 32, 32);
 			const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 			this.raySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
 			this.viewer.sceneVR.add(this.raySphere);
 		}
 		this.raySphere.position.copy(endPoint);
 
-		console.log('Ray length:', this.rayLength);
 
 		//** create position label **//
 		//const annotation = { position: endPoint };
@@ -618,42 +616,42 @@ export class VRControls extends EventDispatcher {
 
 		// Create a new circle mesh
 		const newCircle = new THREE.Mesh(
-			new THREE.SphereGeometry(0.05, 32, 32),
+			new THREE.SphereGeometry(0.01, 32, 32),
 			new THREE.MeshBasicMaterial({ color: 0xff0000 })
 		);
 
-
 		newCircle.position.copy(this.raySphere.position);
-
 		const transformedPosition = this.toScene(newCircle.position);
-
 		newCircle.position.copy(transformedPosition);
+		console.log('untransformed z', this.raySphere.position.z)
+		console.log('transformed z', transformedPosition.z)
 
-		// Add the new circle to the scene and to the circles array
+		newCircle.position.z -= 0.8 * this.node.scale.x;
+		console.log('new z', newCircle.position.z)
+		// Add the new circle to the scene
 		this.viewer.scene.scene.add(newCircle);
-		//this.circles.push(newCircle);
 
-		// Get the position of the annotation
+		// ** new ** //
+		/*
+		const { x, y, z } = newCircle.position;
 
 		// Create a new TextSprite with the position text
-		const labelText = `(${newCircle.position.x.toFixed(2)}, ${newCircle.position.y.toFixed(2)}, ${newCircle.position.z.toFixed(2)})`;
-		const circleLabel = new Potree.TextSprite(labelText);
+		const label = new Potree.TextSprite(`${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`);
 
-		// Position the label slightly above the circle
-		circleLabel.position.copy(newCircle.position);
-		circleLabel.position.y += -0.3; // Adjust height as needed for visibility
-		circleLabel.scale.set(0.2, 0.2, 1.0);
-		this.viewer.scene.scene.add(circleLabel);
+		// Position the label near the annotation point
+		label.position.copy(newCircle.position); // Or adjust the position as needed for visibility
 
-		if(this.triggered.size === 0){
+		// Add the label to the scene
+		viewer.scene.scene.add(label);
+		 */
+
+		if (this.triggered.size === 0) {
 			this.setMode(this.mode_fly);
-		}else if(this.triggered.size === 1){
+		} else if (this.triggered.size === 1) {
 			this.setMode(this.mode_translate);
-		}else if(this.triggered.size === 2){
+		} else if (this.triggered.size === 2) {
 			this.setMode(this.mode_rotScale);
 		}
-
-
 	}
 
 	onTriggerEnd(controller){
