@@ -248,63 +248,7 @@ export class Viewer extends EventDispatcher {
                 // window.infoNode = infoNode;
             }
 
-            // Create a 3D panel (plane) in VR
-            // Create a canvas element
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
 
-            // Set canvas size
-            canvas.width = 512;  // Adjust size as needed
-            canvas.height = 256; // Adjust size as needed
-
-            // Set font and style
-            context.font = 'Bold 40px Arial';  // Change font as needed
-            context.fillStyle = '#000000';     // Set background color
-            context.fillRect(0, 0, canvas.width, canvas.height); // Background
-            context.fillStyle = '#FFFFFF';     // Set text color
-            context.fillText('Measurement: 0.0', 50, 100); // Draw the text
-
-            // Create texture from canvas
-            const texture = new THREE.CanvasTexture(canvas);
-
-            // Create a plane geometry for the text
-            const geometry = new THREE.PlaneGeometry(1, 0.5);  // Adjust size as needed
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide,  // Text will be visible from both sides
-            });
-
-            // Create a mesh with the plane geometry and material
-            const textPanel = new THREE.Mesh(geometry, material);
-
-            // Position the text in front of the user in the VR scene
-            textPanel.position.set(0, 1.5, -2);  // Adjust position as needed
-
-            // Add the text panel to the VR scene
-            this.sceneVR.add(textPanel);  // Assuming sceneVR is
-            // const panelGeometry = new THREE.PlaneGeometry(1, 0.5); // Width and height of the panel
-            // const panelMaterial = new THREE.MeshBasicMaterial({color: 0xffffff, side: THREE.DoubleSide});
-            // const panelMesh = new THREE.Mesh(panelGeometry, panelMaterial);
-            //
-            // // Position the panel in front of the user in the VR scene
-            // panelMesh.position.set(0, 1.5, -2);  // Adjust this position based on your needs
-            // this.sceneVR.add(panelMesh);
-            //
-            // // Add text to the panel using THREE.TextGeometry
-            // const loader = new FontLoader();
-            // loader.load('/assets/fonts/helvetiker_regular.typeface.json', function (font) {
-            //     const textGeometry = new TextGeometry('Measurement: 0.0', {
-            //         font: font,
-            //         size: 0.1,
-            //         height: 0.01
-            //     });
-            //     const bufferGeometry = new THREE.BufferGeometry().fromGeometry(textGeometry);
-            //     const textMaterial = new THREE.MeshBasicMaterial({color: 0x000000});
-            //     const textMesh = new THREE.Mesh(bufferGeometry, textMaterial);
-            //
-            //     textMesh.position.set(-0.4, 0.1, 0.01);  // Adjust text position on the panel
-            //     panelMesh.add(textMesh);  // Attach the text to the panel
-            // });
 
             this.setScene(scene);
 
@@ -379,6 +323,8 @@ export class Viewer extends EventDispatcher {
 
             this.renderer.setAnimationLoop(this.loop.bind(this));
 
+            this.addTextPanelToCamera();
+
             this.loadGUI = this.loadGUI.bind(this);
 
             this.annotationTool = new AnnotationTool(this);
@@ -390,6 +336,62 @@ export class Viewer extends EventDispatcher {
             this.onCrash(e);
         }
     }
+
+    addTextPanelToCamera() {
+    const camera = this.scene.getActiveCamera() || this.scene.cameraP || this.scene.cameraO;
+    console.log(camera); // Check if this logs the camera object
+
+    if (camera) {
+        // Create a canvas element
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        // Set canvas size
+        canvas.width = 512;  // Adjust size as needed
+        canvas.height = 256; // Adjust size as needed
+
+        // Set font and style for the text
+        context.font = 'Bold 40px Arial';  // Change font as needed
+        context.fillStyle = '#000000';     // Set background color
+        context.fillRect(0, 0, canvas.width, canvas.height); // Background
+        context.fillStyle = '#FFFFFF';     // Set text color
+        context.fillText('Measurement: 0.0', 50, 100); // Draw the text
+
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+          // Just white material without texture
+
+        // Create a plane geometry for the text
+        const geometry = new THREE.PlaneGeometry(100, 50);  // Width and height of the plane
+         const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,  // Text will be visible from both sides
+        });
+
+        // Create a mesh with the plane geometry and material
+        const textPanel = new THREE.Mesh(geometry, material);
+        textPanel.frustumCulled = false;
+        textPanel.visible = true;
+
+
+        // Position the text panel in front of the camera
+        textPanel.position.set(0, 0, -20); // Adjust position relative to the camera
+
+        // Add the text panel to the camera
+        camera.add(textPanel);
+        console.log("Text panel added:", textPanel);
+
+        // Debug: Add a small red cube to the camera for testing visibility
+        const debugCube = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.1, 0.1),
+            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+        camera.add(debugCube);  // Adding the debug cube to the camera
+        console.log("Debug cube added:", debugCube);
+    } else {
+        console.warn("Camera is not available.");
+    }
+}
 
     onCrash(error) {
 
