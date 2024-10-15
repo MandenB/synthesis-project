@@ -631,19 +631,29 @@ export class VRControls extends EventDispatcher {
 		// Add the new circle to the scene
 		this.viewer.scene.scene.add(newCircle);
 
-		// ** new ** //
-		/*
 		const { x, y, z } = newCircle.position;
 
 		// Create a new TextSprite with the position text
-		const label = new Potree.TextSprite(`${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`);
+
+		const transformedPositionVector = new THREE.Vector3();
+		transformedPositionVector.copy(newCircle.position);
+
+
+    	// Create label text using the vector
+    	const labelText = `(${transformedPositionVector.x.toFixed(2)}, ${transformedPositionVector.y.toFixed(2)}, ${transformedPositionVector.z.toFixed(2)})`;
+
+    	// Create a label for the circle
+    	const label = new Potree.TextSprite(labelText);
+		label.position.y += 0.5;
+		label.scale.set(1, 1, 1.0);
 
 		// Position the label near the annotation point
 		label.position.copy(newCircle.position); // Or adjust the position as needed for visibility
-
+		console.log('label position', label.position)
+		console.log('label', label)
 		// Add the label to the scene
 		viewer.scene.scene.add(label);
-		 */
+
 
 		if (this.triggered.size === 0) {
 			this.setMode(this.mode_fly);
