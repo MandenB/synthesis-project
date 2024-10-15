@@ -91,6 +91,22 @@ function computeRotation(vrControls, controller){
 	return rotation;
 }
 
+function createPositionLabel(annotation) {
+	// Get the position of the annotation
+	const { x, y, z } = annotation.position;
+
+	// Create a new TextSprite with the position text
+	const label = new Potree.TextSprite(`${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`);
+
+	// Position the label near the annotation point
+	label.position.copy(annotation.position); // Or adjust the position as needed for visibility
+
+	// Add the label to the scene
+	viewer.sceneVR.add(label);
+
+	return label;
+}
+
 class FlyMode{
 
 	constructor(vrControls){
@@ -311,6 +327,7 @@ export class VRControls extends EventDispatcher {
 		this.viewer = viewer;
 		this.rayLength = 2; // Initialize rayLength to 2
 		this.maxRayLength = 10; // Initialize maxRayLength
+		this.createPositionLabel = createPositionLabel;
 
 		viewer.addEventListener("vr_start", this.onStart.bind(this));
 		viewer.addEventListener("vr_end", this.onEnd.bind(this));
@@ -327,7 +344,6 @@ export class VRControls extends EventDispatcher {
 
 		this.menu = null;
 		this.pointClouds = viewer.scene.pointclouds;
-		this.intersectionCircle = this.createIntersectionCircle();
 
 		const controllerModelFactory = new XRControllerModelFactory();
 		this.setupController(xr, controllerModelFactory, 0);
@@ -379,15 +395,6 @@ export class VRControls extends EventDispatcher {
 		this.squeezingController = null;
 	}
 
-	createIntersectionCircle() {
-		const geometry = new THREE.CircleGeometry(0.5, 32);
-		const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-		const circle = new THREE.Mesh(geometry, material);
-		circle.visible = true;
-		this.viewer.sceneVR.add(circle);
-		return circle;
-	}
-
 	onSqueezeStart(controller) {
 		console.log("Squeeze activated", controller);
 		this.isSqueezing = true;
@@ -399,7 +406,6 @@ export class VRControls extends EventDispatcher {
 		console.log("Squeeze released", controller);
 		this.isSqueezing = false;
 		this.squeezingController = null;
-		this.intersectionCircle.visible = false;
 	}
 
 	toControllerScene(vec, controller) {
@@ -426,21 +432,23 @@ export class VRControls extends EventDispatcher {
 			return;
 		}
 
+		//** In VR coordinates **//
 		const controllerPosition = new THREE.Vector3();
 		this.squeezingController.getWorldPosition(controllerPosition);
-
-		const transformedPosition = this.toControllerScene(controllerPosition, this.squeezingController);
-
 		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.squeezingController.quaternion).normalize();
+
+		//** In Scene coordinates **//
+		const transformedPosition = this.toControllerScene(controllerPosition, this.squeezingController);
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
-		const rayOrigin = transformedPosition.clone();
-
+		//** Joystick control **//
 		const pad = this.squeezingController.inputSource.gamepad;
 		const axes = pad.axes;
 		const joystickValue = axes.length >= 2 ? axes[1] : 0;
 		this.rayLength = THREE.MathUtils.clamp(this.rayLength + joystickValue * 0.1, 0, this.maxRayLength);
 
+		//** Creation of Ray **//
+		const rayOrigin = controllerPosition.clone();
 		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
 		const endPoint = rayOrigin.clone().add(rayDirection);
 		console.log("Ray Origin:", rayOrigin);
@@ -448,21 +456,25 @@ export class VRControls extends EventDispatcher {
 		if (this.rayLine) {
 			this.rayLine.geometry.setFromPoints([rayOrigin, endPoint]);
 		} else {
-			const geometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
-			const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-			this.rayLine = new THREE.Line(geometry, material);
-			this.viewer.scene.scene.add(this.rayLine);
+			const rayGeometry = new THREE.BufferGeometry().setFromPoints([rayOrigin, endPoint]);
+			const rayMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+			this.rayLine = new THREE.Line(rayGeometry, rayMaterial);
+			this.viewer.sceneVR.add(this.rayLine);
 		}
 
 		if (!this.raySphere) {
 			const sphereGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 			const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 			this.raySphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-			this.viewer.scene.scene.add(this.raySphere);
+			this.viewer.sceneVR.add(this.raySphere);
 		}
 		this.raySphere.position.copy(endPoint);
 
 		console.log('Ray length:', this.rayLength);
+
+		//** create position label **//
+		//const annotation = { position: endPoint };
+		//this.createPositionLabel(annotation);
 	}
 
 
@@ -601,8 +613,37 @@ export class VRControls extends EventDispatcher {
 		this.mode.start(this);
 	}
 
-	onTriggerStart(controller){
-		this.triggered.add(controller);
+	onTriggerStart(controller) {
+		console.log("Trigger pressed, creating new circle", controller);
+
+		// Create a new circle mesh
+		const newCircle = new THREE.Mesh(
+			new THREE.SphereGeometry(0.05, 32, 32),
+			new THREE.MeshBasicMaterial({ color: 0xff0000 })
+		);
+
+
+		newCircle.position.copy(this.raySphere.position);
+
+		const transformedPosition = this.toScene(newCircle.position);
+
+		newCircle.position.copy(transformedPosition);
+
+		// Add the new circle to the scene and to the circles array
+		this.viewer.scene.scene.add(newCircle);
+		//this.circles.push(newCircle);
+
+		// Get the position of the annotation
+
+		// Create a new TextSprite with the position text
+		const labelText = `(${newCircle.position.x.toFixed(2)}, ${newCircle.position.y.toFixed(2)}, ${newCircle.position.z.toFixed(2)})`;
+		const circleLabel = new Potree.TextSprite(labelText);
+
+		// Position the label slightly above the circle
+		circleLabel.position.copy(newCircle.position);
+		circleLabel.position.y += -0.3; // Adjust height as needed for visibility
+		circleLabel.scale.set(0.2, 0.2, 1.0);
+		this.viewer.scene.scene.add(circleLabel);
 
 		if(this.triggered.size === 0){
 			this.setMode(this.mode_fly);
@@ -611,6 +652,8 @@ export class VRControls extends EventDispatcher {
 		}else if(this.triggered.size === 2){
 			this.setMode(this.mode_rotScale);
 		}
+
+
 	}
 
 	onTriggerEnd(controller){
