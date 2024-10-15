@@ -328,6 +328,7 @@ export class VRControls extends EventDispatcher {
 		this.rayLength = 2; // Initialize rayLength to 2
 		this.maxRayLength = 10; // Initialize maxRayLength
 		this.createPositionLabel = createPositionLabel;
+		this.points = [];
 
 		viewer.addEventListener("vr_start", this.onStart.bind(this));
 		viewer.addEventListener("vr_end", this.onEnd.bind(this));
@@ -611,6 +612,13 @@ export class VRControls extends EventDispatcher {
 		this.mode.start(this);
 	}
 
+	calculateDistance(point1, point2) {
+		const dx = point1.x - point2.x;
+		const dy = point1.y - point2.y;
+		const dz = point1.z - point2.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
+	}
+
 	onTriggerStart(controller) {
 		console.log("Trigger pressed, creating new circle", controller);
 
@@ -623,27 +631,33 @@ export class VRControls extends EventDispatcher {
 		newCircle.position.copy(this.raySphere.position);
 		const transformedPosition = this.toScene(newCircle.position);
 		newCircle.position.copy(transformedPosition);
-		console.log('untransformed z', this.raySphere.position.z)
-		console.log('transformed z', transformedPosition.z)
 
 		newCircle.position.z -= 0.8 * this.node.scale.x;
-		console.log('new z', newCircle.position.z)
+
 		// Add the new circle to the scene
 		this.viewer.scene.scene.add(newCircle);
+		console.log('New circle created at:', newCircle.position);
 
-		// ** new ** //
-		/*
-		const { x, y, z } = newCircle.position;
+		// Get the position of the new point
+		const newPointPosition = newCircle.position.clone();
 
-		// Create a new TextSprite with the position text
-		const label = new Potree.TextSprite(`${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`);
+		// If there's a previous point, create a line and calculate the distance
+		if (this.points.length > 0) {
+			const lastPointPosition = this.points[this.points.length - 1];
 
-		// Position the label near the annotation point
-		label.position.copy(newCircle.position); // Or adjust the position as needed for visibility
+			// Create a line between the last point and the new point
+			const geometry = new THREE.BufferGeometry().setFromPoints([lastPointPosition, newPointPosition]);
+			const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+			const line = new THREE.Line(geometry, material);
+			this.viewer.scene.scene.add(line);
 
-		// Add the label to the scene
-		viewer.scene.scene.add(label);
-		 */
+			// Calculate the distance between the last point and the new point
+			const distance = this.calculateDistance(lastPointPosition, newPointPosition);
+			console.log('Distance between points:', distance);
+		}
+
+		// Store the new point in the points array
+		this.points.push(newPointPosition);
 
 		if (this.triggered.size === 0) {
 			this.setMode(this.mode_fly);
