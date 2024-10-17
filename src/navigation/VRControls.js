@@ -442,10 +442,22 @@ export class VRControls extends EventDispatcher {
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
 		//** Joystick control **//
-		const pad = this.squeezingController.inputSource.gamepad;
-		const axes = pad.axes;
-		const joystickValue = axes.length >= 2 ? axes[1] : 0;
-		this.rayLength = THREE.MathUtils.clamp(this.rayLength + joystickValue * 0.1, 0, this.maxRayLength);
+		// Update ray length based on the left joystick
+    if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
+        const pad = this.cPrimary.inputSource.gamepad;
+        const axes = pad.axes;
+
+        // Check if axes are available
+        if (axes.length >= 4) {
+			// axes 3 = y
+            const leftJoystickY = axes[3];
+
+			//minus because otherwise it's inverted
+            // Adjust ray length based on joystick input
+            this.rayLength = THREE.MathUtils.clamp(this.rayLength - leftJoystickY * 0.1, 0, this.maxRayLength);
+        }
+    }
+
 
 		//** Creation of Ray **//
 		const rayOrigin = controllerPosition.clone();
