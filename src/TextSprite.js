@@ -16,8 +16,9 @@ export class TextSprite extends THREE.Object3D{
 		texture.magFilter = THREE.LinearFilter;
 		let spriteMaterial = new THREE.SpriteMaterial({
 			map: texture,
-			depthTest: false,
-			depthWrite: false});
+			// depthTest: false,
+			// depthWrite: false
+			});
 
 		this.texture = texture;
 
@@ -98,11 +99,11 @@ export class TextSprite extends THREE.Object3D{
 			this.textColor.b + ',' + this.textColor.a + ')';
 		context.fillText(this.text, this.borderThickness + margin, this.fontsize + this.borderThickness);
 
-		let texture = new THREE.Texture(canvas);
+		let texture = new THREE.CanvasTexture(canvas);
 		texture.minFilter = THREE.LinearFilter;
 		texture.magFilter = THREE.LinearFilter;
 		texture.needsUpdate = true;
-		//this.material.needsUpdate = true;
+		// this.material.needsUpdate = true;
 
 		// { // screen-space sprite
 		// 	let [screenWidth, screenHeight] = [1620, 937];
@@ -122,7 +123,7 @@ export class TextSprite extends THREE.Object3D{
 		this.sprite.material.map = texture;
 		this.texture = texture;
 
-		this.sprite.scale.set(spriteWidth * 0.01, spriteHeight * 0.01, 1.0);
+		this.sprite.scale.set(spriteWidth * 0.002, spriteHeight * 0.002, 1.0);
 	}
 
 	roundRect(ctx, x, y, w, h, r){

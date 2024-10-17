@@ -5,6 +5,7 @@ import { XRControllerModelFactory } from '../../libs/three.js/webxr/XRController
 import {Line2} from "../../libs/three.js/lines/Line2.js";
 import {LineGeometry} from "../../libs/three.js/lines/LineGeometry.js";
 import {LineMaterial} from "../../libs/three.js/lines/LineMaterial.js";
+import {TextSprite} from "../TextSprite.js";
 
 let fakeCam = new THREE.PerspectiveCamera();
 
@@ -329,6 +330,9 @@ export class VRControls extends EventDispatcher {
 		this.maxRayLength = 10; // Initialize maxRayLength
 		this.createPositionLabel = createPositionLabel;
 		this.points = [];
+		this.createTextSprite = TextSprite;
+
+		this.labelScene = new THREE.Scene();
 
 		viewer.addEventListener("vr_start", this.onStart.bind(this));
 		viewer.addEventListener("vr_end", this.onEnd.bind(this));
@@ -616,12 +620,107 @@ export class VRControls extends EventDispatcher {
 		const dx = point1.x - point2.x;
 		const dy = point1.y - point2.y;
 		const dz = point1.z - point2.z;
-		return Math.sqrt(dx * dx + dy * dy + dz * dz);
+		const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		return parseFloat(distance.toFixed(2));
 	}
 
-	onTriggerStart(controller) {
-		console.log("Trigger pressed, creating new circle", controller);
+	calculateArea(points) {
+		if (points.length < 3) {
+			console.error('At least three points are required to calculate an area.');
+			return 0;
+		}
 
+		let areaXY = 0, areaYZ = 0, areaZX = 0;
+		const n = points.length;
+
+		for (let i = 0; i < n; i++) {
+			const { x: x1, y: y1, z: z1 } = points[i];
+			const { x: x2, y: y2, z: z2 } = points[(i + 1) % n];
+
+			areaXY += x1 * y2 - x2 * y1;
+			areaYZ += y1 * z2 - y2 * z1;
+			areaZX += z1 * x2 - z2 * x1;
+		}
+
+		areaXY = Math.abs(areaXY / 2);
+		areaYZ = Math.abs(areaYZ / 2);
+		areaZX = Math.abs(areaZX / 2);
+
+		// Combine the areas of the projections
+		const totalArea = Math.sqrt(areaXY * areaXY + areaYZ * areaYZ + areaZX * areaZX);
+		return parseFloat(totalArea.toFixed(2));
+	}
+
+	colorArea(points, color = 0xff0000) {
+		if (points.length < 3) {
+			console.error('At least three points are required to color an area.');
+			return;
+		}
+
+		// Remove existing area drawing if it exists
+		if (this.areaDrawing) {
+			this.viewer.scene.scene.remove(this.areaDrawing);
+		}
+
+		// Remove existing label if it exists
+		if (this.areaLabel) {
+			this.viewer.scene.scene.remove(this.areaLabel);
+		}
+
+		// Create a geometry from the points
+		const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+		// Create a material with the desired color
+		const material = new THREE.LineBasicMaterial({ color: color });
+
+		// Create a line from the geometry and material
+		const line = new THREE.LineLoop(geometry, material);
+
+		// Add the line to the scene
+		this.viewer.scene.scene.add(line);
+
+		// Store the line for future reference
+		this.areaDrawing = line;
+	}
+
+	createLabel(object, type, Unit) {
+		let labelText = '';
+
+		if (type === 'point') {
+			const { x, y, z } = object.position;
+			labelText = `${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)}`;
+		} else if (type === 'line') {
+			labelText = `${Unit} m`;
+		} else if (type === 'area') {
+			const { x, y, z } = object.position;
+			labelText = `${Unit} m^2`;
+
+		}
+
+		else {
+			console.error('Invalid type specified for createLabel');
+			return null;
+		}
+
+		const label = new this.createTextSprite(labelText);
+
+		// Position the label near the object
+		if (type === 'point') {
+			label.position.copy(object.position);
+		} else if (type === 'line') {
+			const midPoint = new THREE.Vector3().addVectors(object.start, object.end).multiplyScalar(0.5);
+			label.position.copy(midPoint);
+		} else if (type === 'area') {
+			label.position.copy(object.position);
+		}
+
+		// put the label above the point
+		label.position.z += 0.1;
+
+		return label
+	}
+
+	createSphereAndLabel() {
 		// Create a new circle mesh
 		const newCircle = new THREE.Mesh(
 			new THREE.SphereGeometry(0.01, 32, 32),
@@ -641,23 +740,62 @@ export class VRControls extends EventDispatcher {
 		// Get the position of the new point
 		const newPointPosition = newCircle.position.clone();
 
+		// Create a label for the new point
+		const pointlabel = this.createLabel(newCircle, 'point');
+		this.viewer.scene.scene.add(pointlabel)
+
 		// If there's a previous point, create a line and calculate the distance
 		if (this.points.length > 0) {
 			const lastPointPosition = this.points[this.points.length - 1];
 
 			// Create a line between the last point and the new point
 			const geometry = new THREE.BufferGeometry().setFromPoints([lastPointPosition, newPointPosition]);
-			const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+			const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 });
 			const line = new THREE.Line(geometry, material);
 			this.viewer.scene.scene.add(line);
 
 			// Calculate the distance between the last point and the new point
 			const distance = this.calculateDistance(lastPointPosition, newPointPosition);
 			console.log('Distance between points:', distance);
+
+			// Create a label for the line
+			const linelabel = this.createLabel({ start: lastPointPosition, end: newPointPosition }, 'line', distance);
+			this.viewer.scene.scene.add(linelabel);
 		}
 
 		// Store the new point in the points array
 		this.points.push(newPointPosition);
+
+		if (this.points.length > 2) {
+			const area = this.calculateArea(this.points);
+			console.log('Area of the polygon:', area);
+			this.colorArea(this.points, 0x0000ff);
+
+			// Remove existing label if it exists
+			if (this.areaLabel) {
+				this.viewer.scene.scene.remove(this.areaLabel);
+			}
+
+			// Calculate the centroid of the area for label positioning
+			const centroid = new THREE.Vector3();
+			this.points.forEach(point => centroid.add(point));
+			centroid.divideScalar(this.points.length);
+
+			const areaLabel = this.createLabel({ position: centroid }, 'area', area);
+
+			this.viewer.scene.scene.add(areaLabel)
+
+			this.areaLabel = areaLabel;
+		}
+
+	}
+
+	onTriggerStart(controller) {
+		// Check if the controller is squeezing
+		if (this.isSqueezing && this.squeezingController === controller) {
+			console.log("Trigger pressed, creating new circle", controller);
+			this.createSphereAndLabel();
+		}
 
 		if (this.triggered.size === 0) {
 			this.setMode(this.mode_fly);
@@ -666,7 +804,7 @@ export class VRControls extends EventDispatcher {
 		} else if (this.triggered.size === 2) {
 			this.setMode(this.mode_rotScale);
 		}
-	}
+		}
 
 	onTriggerEnd(controller){
 		this.triggered.delete(controller);
