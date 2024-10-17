@@ -22132,174 +22132,182 @@ Object.assign( WebXRController.prototype, {
 
 function WebXRManager( renderer, gl ) {
 
-	const scope = this;
+    const scope = this;
 
-	let session = null;
+    let session = null;
 
-	let framebufferScaleFactor = 1.0;
+    let framebufferScaleFactor = 1.0;
 
-	let referenceSpace = null;
-	let referenceSpaceType = 'local-floor';
+    let referenceSpace = null;
+    let referenceSpaceType = 'local-floor';
 
-	let pose = null;
+    let pose = null;
 
-	const controllers = [];
-	const inputSourcesMap = new Map();
+    const controllers = [];
+    const inputSourcesMap = new Map();
 
-	//
+    //
 
-	const cameraL = new PerspectiveCamera();
-	cameraL.layers.enable( 1 );
-	cameraL.viewport = new Vector4();
+    const cameraL = new PerspectiveCamera();
+    cameraL.layers.enable(1);
+    cameraL.viewport = new Vector4();
 
-	const cameraR = new PerspectiveCamera();
-	cameraR.layers.enable( 2 );
-	cameraR.viewport = new Vector4();
+    const cameraR = new PerspectiveCamera();
+    cameraR.layers.enable(2);
+    cameraR.viewport = new Vector4();
 
-	const cameras = [ cameraL, cameraR ];
+    const cameras = [cameraL, cameraR];
 
-	const cameraVR = new ArrayCamera();
-	cameraVR.layers.enable( 1 );
-	cameraVR.layers.enable( 2 );
+    const cameraVR = new ArrayCamera();
+    cameraVR.layers.enable(1);
+    cameraVR.layers.enable(2);
 
-	let _currentDepthNear = null;
-	let _currentDepthFar = null;
+    let _currentDepthNear = null;
+    let _currentDepthFar = null;
 
-	//
+    //
 
-	this.enabled = false;
+    this.enabled = false;
 
-	this.isPresenting = false;
+    this.isPresenting = false;
 
-	this.getController = function ( index ) {
+    this.getController = function (index) {
 
-		let controller = controllers[ index ];
+        let controller = controllers[index];
 
-		if ( controller === undefined ) {
+        if (controller === undefined) {
 
-			controller = new WebXRController();
-			controllers[ index ] = controller;
+            controller = new WebXRController();
+            controllers[index] = controller;
 
-		}
+        }
 
-		return controller.getTargetRaySpace();
+        return controller.getTargetRaySpace();
 
-	};
+    };
 
-	this.getControllerGrip = function ( index ) {
+    this.getControllerGrip = function (index) {
 
-		let controller = controllers[ index ];
+        let controller = controllers[index];
 
-		if ( controller === undefined ) {
+        if (controller === undefined) {
 
-			controller = new WebXRController();
-			controllers[ index ] = controller;
+            controller = new WebXRController();
+            controllers[index] = controller;
 
-		}
+        }
 
-		return controller.getGripSpace();
+        return controller.getGripSpace();
 
-	};
+    };
 
-	this.getHand = function ( index ) {
+    this.getHand = function (index) {
 
-		let controller = controllers[ index ];
+        let controller = controllers[index];
 
-		if ( controller === undefined ) {
+        if (controller === undefined) {
 
-			controller = new WebXRController();
-			controllers[ index ] = controller;
+            controller = new WebXRController();
+            controllers[index] = controller;
 
-		}
+        }
 
-		return controller.getHandSpace();
+        return controller.getHandSpace();
 
-	};
+    };
 
-	//
+    //
 
-	function onSessionEvent( event ) {
+    function onSessionEvent(event) {
 
-		const controller = inputSourcesMap.get( event.inputSource );
+        const controller = inputSourcesMap.get(event.inputSource);
 
-		if ( controller ) {
+        if (controller) {
 
-			controller.dispatchEvent( { type: event.type, data: event.inputSource } );
+            controller.dispatchEvent({type: event.type, data: event.inputSource});
 
-		}
+        }
 
-	}
+    }
 
-	function onSessionEnd() {
+    function onSessionEnd() {
 
-		inputSourcesMap.forEach( function ( controller, inputSource ) {
+        inputSourcesMap.forEach(function (controller, inputSource) {
 
-			controller.disconnect( inputSource );
+            controller.disconnect(inputSource);
 
-		} );
+        });
 
-		inputSourcesMap.clear();
+        inputSourcesMap.clear();
 
-		//
+        //
 
-		renderer.setFramebuffer( null );
-		renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830
-		animation.stop();
+        renderer.setFramebuffer(null);
+        renderer.setRenderTarget(renderer.getRenderTarget()); // Hack #15830
+        animation.stop();
 
-		scope.isPresenting = false;
+        scope.isPresenting = false;
 
-		scope.dispatchEvent( { type: 'sessionend' } );
+        scope.dispatchEvent({type: 'sessionend'});
 
-	}
+    }
 
-	function onRequestReferenceSpace( value ) {
+    function onRequestReferenceSpace(value) {
 
-		referenceSpace = value;
+        referenceSpace = value;
 
-		animation.setContext( session );
-		animation.start();
+        animation.setContext(session);
+        animation.start();
 
-		scope.isPresenting = true;
+        scope.isPresenting = true;
 
-		scope.dispatchEvent( { type: 'sessionstart' } );
+        scope.dispatchEvent({type: 'sessionstart'});
 
-	}
+    }
 
-	this.setFramebufferScaleFactor = function ( value ) {
+    this.setFramebufferScaleFactor = function (value) {
 
-		framebufferScaleFactor = value;
+        framebufferScaleFactor = value;
 
-		if ( scope.isPresenting === true ) {
+        if (scope.isPresenting === true) {
 
-			console.warn( 'THREE.WebXRManager: Cannot change framebuffer scale while presenting.' );
+            console.warn('THREE.WebXRManager: Cannot change framebuffer scale while presenting.');
 
-		}
+        }
 
-	};
+    };
 
-	this.setReferenceSpaceType = function ( value ) {
+    this.setReferenceSpaceType = function (value) {
 
-		referenceSpaceType = value;
+        referenceSpaceType = value;
 
-		if ( scope.isPresenting === true ) {
+        if (scope.isPresenting === true) {
 
-			console.warn( 'THREE.WebXRManager: Cannot change reference space type while presenting.' );
+            console.warn('THREE.WebXRManager: Cannot change reference space type while presenting.');
 
-		}
+        }
 
-	};
+    };
 
-	this.getReferenceSpace = function () {
+    this.getReferenceSpace = function () {
 
-		return referenceSpace;
+        return referenceSpace;
 
-	};
+    };
 
-	this.getSession = function () {
+    this.getSession = function () {
 
-		return session;
+        return session;
 
-	};
+    };
+    const attributes = gl.getContextAttributes();
+    if (attributes.xrCompatible !== true) {
+        gl.makeXRCompatible().then(() => {
+            renderer.xr.setsession(session);
+        })
+    } else{
+        renderer.xr.setsession(session);
+    }
 
 	this.setSession = function ( value ) {
 
