@@ -447,19 +447,37 @@ export class VRControls extends EventDispatcher {
     if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
         const pad = this.cPrimary.inputSource.gamepad;
         const axes = pad.axes;
-
+	console.log(pad)
         // Check if axes are available
         if (axes.length >= 4) {
 			// axes 3 = y
             const leftJoystickY = axes[3];
-
+			console.log(axes.length)
+			console.log(axes)
 			//minus because otherwise it's inverted
             // Adjust ray length based on joystick input
             this.rayLength = THREE.MathUtils.clamp(this.rayLength - leftJoystickY * 0.1, 0, this.maxRayLength);
         }
     }
 
+ if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
+        const buttons = this.cPrimary.inputSource.gamepad.buttons;
 
+        // Check for button presses
+        if (buttons.length > 0) {
+            // Button 0 is typically the primary action button (e.g., A on Oculus controllers)
+            if (buttons[0].touched) {
+                console.log('Primary button pressed!');
+                this.handlePrimaryAction(endPoint); // Call a function to handle this action
+            }
+
+            // Check for additional buttons if needed
+            if (buttons.length > 1 && buttons[1].touched) {
+                console.log('Secondary button pressed!');
+                this.handleSecondaryAction(endPoint); // Another action
+            }
+        }
+    }
 		console.log('raylength', this.rayLength)
 		//** Creation of Ray **//
 		const rayOrigin = controllerPosition.clone();
@@ -639,7 +657,6 @@ export class VRControls extends EventDispatcher {
 		newCircle.position.copy(transformedPosition);
 		//console.log('untransformed z', this.raySphere.position.z)
 		//console.log('transformed z', transformedPosition.z)
-
 		newCircle.position.z -= 0.8 * this.node.scale.x;
 		//console.log('new z', newCircle.position.z)
 		// Add the new circle to the scene
@@ -692,6 +709,7 @@ export class VRControls extends EventDispatcher {
 
 
 	onStart(){
+		console.log(this.node.position)
 		// Define your fixed XYZ position here
 		let fixedPosition = new THREE.Vector3(5700, 339900, 7); // Replace with your desired x, y, z values
 
