@@ -396,14 +396,14 @@ export class VRControls extends EventDispatcher {
 	}
 
 	onSqueezeStart(controller) {
-		console.log("Squeeze activated", controller);
+		//console.log("Squeeze activated", controller);
 		this.isSqueezing = true;
 		this.squeezingController = controller;
 		this.updateRay();
 	}
 
 	onSqueezeEnd(controller) {
-		console.log("Squeeze released", controller);
+		//console.log("Squeeze released", controller);
 		this.isSqueezing = false;
 		this.squeezingController = null;
 	}
@@ -441,6 +441,7 @@ export class VRControls extends EventDispatcher {
 		const transformedPosition = this.toControllerScene(controllerPosition, this.squeezingController);
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
+
 		//** Joystick control **//
 		// Update ray length based on the left joystick
     if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
@@ -459,6 +460,7 @@ export class VRControls extends EventDispatcher {
     }
 
 
+		console.log('raylength', this.rayLength)
 		//** Creation of Ray **//
 		const rayOrigin = controllerPosition.clone();
 		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
@@ -624,7 +626,7 @@ export class VRControls extends EventDispatcher {
 	}
 
 	onTriggerStart(controller) {
-		console.log("Trigger pressed, creating new circle", controller);
+		//console.log("Trigger pressed, creating new circle", controller);
 
 		// Create a new circle mesh
 		const newCircle = new THREE.Mesh(
@@ -635,11 +637,11 @@ export class VRControls extends EventDispatcher {
 		newCircle.position.copy(this.raySphere.position);
 		const transformedPosition = this.toScene(newCircle.position);
 		newCircle.position.copy(transformedPosition);
-		console.log('untransformed z', this.raySphere.position.z)
-		console.log('transformed z', transformedPosition.z)
+		//console.log('untransformed z', this.raySphere.position.z)
+		//console.log('transformed z', transformedPosition.z)
 
 		newCircle.position.z -= 0.8 * this.node.scale.x;
-		console.log('new z', newCircle.position.z)
+		//console.log('new z', newCircle.position.z)
 		// Add the new circle to the scene
 		this.viewer.scene.scene.add(newCircle);
 
@@ -661,8 +663,8 @@ export class VRControls extends EventDispatcher {
 
 		// Position the label near the annotation point
 		label.position.copy(newCircle.position); // Or adjust the position as needed for visibility
-		console.log('label position', label.position)
-		console.log('label', label)
+		//console.log('label position', label.position)
+		//console.log('label', label)
 		// Add the label to the scene
 		viewer.scene.scene.add(label);
 
