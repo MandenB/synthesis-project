@@ -7,7 +7,7 @@ import {LineGeometry} from "../../libs/three.js/lines/LineGeometry.js";
 import {LineMaterial} from "../../libs/three.js/lines/LineMaterial.js";
 import {TextSprite} from "../TextSprite.js";
 import { GLTFLoader } from "../../libs/three.js/loaders/GLTFLoader.js";
-
+import KDBush from "../../libs/kdbush-4.0.2/index.js";
 
 let fakeCam = new THREE.PerspectiveCamera();
 
@@ -331,10 +331,14 @@ export class VRControls extends EventDispatcher {
 		this.rayLength = 2; // Initialize rayLength to 2
 		this.maxRayLength = 10; // Initialize maxRayLength
 		this.createPositionLabel = createPositionLabel;
-		this.points = [];
 		this.createTextSprite = TextSprite;
 		this.gltfloader = new GLTFLoader();
 		this.menu = null;
+		this.meshVertices = [];
+
+		this.points = [];
+		this.lines = [];
+		this.labels = [];
 
 		this.labelScene = new THREE.Scene();
 
@@ -362,21 +366,77 @@ export class VRControls extends EventDispatcher {
 		this.mode_translate = new TranslationMode();
 		this.mode_rotScale = new RotScaleMode();
 		this.setMode(this.mode_fly);
-		// this.inputGroundMeshes();
+		this.inputGroundMeshes();
 		// this.inputwallmeshes();
+
+		this.buttonActions = {
+			"Delete measurements": function() {
+				// Remove all points from the scene
+				for (let point of this.points) {
+					this.viewer.scene.scene.remove(point);
+				}
+				// Clear the points array
+				this.points = [];
+
+				// Remove all lines from the scene
+				for (let line of this.lines) {
+					this.viewer.scene.scene.remove(line);
+				}
+				// Clear the lines array
+				this.lines = [];
+
+				// Remove all labels from the scene
+				for (let label of this.labels) {
+					this.viewer.scene.scene.remove(label);
+				}
+				// Clear the labels array
+				this.labels = [];
+
+				console.log("Measurements deleted");
+			},
+			"Button 2": function() {
+				// Logic for Button 2
+				console.log("Button 2 clicked");
+			},
+			"Button 3": function() {
+				// Logic for Button 3
+				console.log("Button 3 clicked");
+			},
+			"Button 4": function() {
+				// Logic for Button 4
+				console.log("Button 4 clicked");
+			},
+			"Button 5": function() {
+				// Logic for Button 5
+				console.log("Button 5 clicked");
+			}
+		};
 	}
 
 	inputGroundMeshes(){
 		const loader = new GLTFLoader();
 
-		loader.load("../meshes/ground_mesh.glb", function (gltf) {
+		loader.load("../meshes/ground_mesh.glb",(gltf) => {
 			// Add the ground_mesh to the scene
-			this.viewer.scene.scene.add(gltf.scene);
+			this.groundMesh = gltf.scene;
+			// this.viewer.scene.scene.add(gltf.scene);
+			// this.viewer.scene.scene.add(gltf.scene);
 
 			console.log("GLB ground_mesh successfully loaded and added to the scene.");
-		})
-		loader.load("../meshes/non_ground_mesh.glb", function (gltf) {
-			this.viewer.scene.scene.add(gltf.scene);
+			//bbox for ground mesh
+			const bbox = new THREE.Box3().setFromObject(this.groundMesh);
+			console.log("GLB Model 1 Bounding Box:", bbox);
+
+			const geometry = gltf.scene.children[0].geometry; // Adjust based on your mesh structure
+			const positionAttribute = geometry.attributes.position;
+
+			// Read vertices as shown above
+			for (let i = 0; i < positionAttribute.count; i++) {
+				const vertex = new THREE.Vector3();
+				vertex.fromBufferAttribute(positionAttribute, i);
+				this.meshVertices.push({ x: vertex.x, y: vertex.y, z: vertex.z});
+			}
+			//const index = new KDBush(this.meshVertices, vertex => vertex.x, vertex => vertex.y);
 		})
 
 		// Add lighting to the scene
@@ -390,6 +450,8 @@ export class VRControls extends EventDispatcher {
 			this.viewer.scene.scene.add(directional);
 			this.viewer.scene.scene.add(ambient);
 		}
+
+
 	}
 
 	inputwallmeshes(){
@@ -418,58 +480,49 @@ export class VRControls extends EventDispatcher {
 
 	createMenu() {
 		let menu = new THREE.Object3D();
-		let geometry = new THREE.BoxGeometry(1, 0.2, 0.001);
-		let material = new THREE.MeshBasicMaterial({ color: 0xD3D3D3 });  // Use a visible color
+
+		// Adjust menu box size to fit everything (title + buttons)
+		let geometry = new THREE.BoxGeometry(1.2, 0.6, 0.001); // Reduced width and height for better fit
+		let material = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.7 });
 		let mesh = new THREE.Mesh(geometry, material);
 		menu.add(mesh);
-		menu.position.set(0, 2, -1.5);  // Ensure this is in the camera's view
+		menu.position.set(0, 2, -1.5);
 
-		this.createMenuButton(menu);
+		// Create menu title
+		this.createMenuTitle(menu);
+
+		// Create individual buttons with specific labels, positioned higher
+		this.createMenuButton(menu, "Delete measurements", -0.4, 0.05); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Button 2", 0, 0.05); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Button 3", 0.4, 0.05); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Button 4", -0.4, -0.1); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Button 5", 0.4, -0.1); // Adjusted yOffset to position higher
 
 		return menu;
 	}
 
-	createMenuButton(menu) {
-		let button1 = new THREE.Object3D();
-
-		// Create the button geometry (Box)
-		let geometry = new THREE.BoxGeometry(0.1, 0.1, 0.001);
-		let material = new THREE.MeshBasicMaterial({ color: 0xA9A9A9 });  // Use a visible color
-		let mesh = new THREE.Mesh(geometry, material);
-		button1.add(mesh);
-
-		// Position the button manually (you can tweak this)
-		button1.position.set(0, 0, 0.001);
-
-		// Create a 2D canvas for the text
+	createMenuTitle(menu) {
+		// Create a 2D canvas for the title text
 		let canvas = document.createElement('canvas');
 		let context = canvas.getContext('2d');
 
 		// Set canvas size and text properties
-		canvas.width = 256;  // Higher resolution gives better text clarity
-		canvas.height = 64;
-		context.font = '28px Arial';  // Customize the font style and size
-		context.textAlign = 'center';  // Center-align text
-		context.textBaseline = 'middle';  // Vertically center the text
-
-		// Define the text strings
-		const line1 = 'Delete';
-		const line2 = 'measurements';
+		canvas.width = 512;
+		canvas.height = 128;
+		context.font = '48px Arial';  // Customize the font style and size
+		context.textAlign = 'center';
+		context.textBaseline = 'middle';
 
 		// Set the text color
-		context.fillStyle = 'white';  // Text fill color
-
-		// Set the stroke color and width for the outline
-		context.strokeStyle = 'black';  // Outline color
-		context.lineWidth = 5;  // Outline thickness
+		context.fillStyle = 'white';
+		context.strokeStyle = 'black';
+		context.lineWidth = 6;
 
 		// Draw the text outline first
-		context.strokeText(line1, canvas.width / 2, canvas.height / 2 - 10);  // First line
-		context.strokeText(line2, canvas.width / 2, canvas.height / 2 + 20);  // Second line
+		context.strokeText('Menu', canvas.width / 2, canvas.height / 2);
 
-		// Now fill the text with white
-		context.fillText(line1, canvas.width / 2, canvas.height / 2 - 10);  // First line
-		context.fillText(line2, canvas.width / 2, canvas.height / 2 + 20);  // Second line
+		// Fill the text
+		context.fillText('Menu', canvas.width / 2, canvas.height / 2);
 
 		// Create a texture from the canvas
 		let texture = new THREE.CanvasTexture(canvas);
@@ -478,15 +531,83 @@ export class VRControls extends EventDispatcher {
 		let textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
 
 		// Create a plane geometry for the text
-		let textPlaneGeometry = new THREE.PlaneGeometry(0.1, 0.05);  // Adjust size to fit button
+		let textPlaneGeometry = new THREE.PlaneGeometry(1, 0.2); // Adjust size to fit the menu width
+		let textMesh = new THREE.Mesh(textPlaneGeometry, textMaterial);
+
+		// Position the title on top of the menu
+		textMesh.position.set(0, 0.3, 0.002); // Positioned above the buttons
+		menu.add(textMesh);
+	}
+
+	createMenuButton(menu, labelText, xOffset, yOffset) {
+		let button = new THREE.Object3D();
+
+		// Create the button geometry with some depth for a 3D look
+		let geometry = new THREE.BoxGeometry(0.35, 0.1, 0.02); // Reduced button size for better fit
+		let material = new THREE.MeshPhongMaterial({
+			color: 0x333333, // Dark color for the button
+			shininess: 80,
+			specular: 0x888888
+		});
+		let mesh = new THREE.Mesh(geometry, material);
+		button.add(mesh);
+
+		// Add lighting for better realism
+		let ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+		let directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+		directionalLight.position.set(1, 1, 1).normalize();
+		button.add(ambientLight);
+		button.add(directionalLight);
+
+		// Position the button
+		button.position.set(xOffset, yOffset, 0.02); // Use xOffset and yOffset to determine button position
+
+		// Create a 2D canvas for the text
+		let canvas = document.createElement('canvas');
+		let context = canvas.getContext('2d');
+
+		// Set canvas size and text properties
+		canvas.width = 256;
+		canvas.height = 128; // Increased height for multi-line text
+		context.font = '28px Arial';
+		context.textAlign = 'center';
+		context.textBaseline = 'middle';
+
+		// Set text color
+		context.fillStyle = 'white';
+		context.strokeStyle = 'black';
+		context.lineWidth = 5;
+
+		// Split labelText if necessary and draw it on two lines if it contains multiple words
+		const words = labelText.split(" ");
+		const line1 = words[0];
+		const line2 = words[1] || "";
+
+		// Draw the text
+		context.strokeText(line1, canvas.width / 2, canvas.height / 3);
+		context.fillText(line1, canvas.width / 2, canvas.height / 3);
+
+		if (line2) {
+			context.strokeText(line2, canvas.width / 2, 2 * canvas.height / 3);
+			context.fillText(line2, canvas.width / 2, 2 * canvas.height / 3);
+		}
+
+		// Create a texture from the canvas
+		let texture = new THREE.CanvasTexture(canvas);
+
+		// Create a material for the text
+		let textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+
+		// Create a plane geometry for the text
+		let textPlaneGeometry = new THREE.PlaneGeometry(0.35, 0.1); // Adjust size to fit the button
 		let textMesh = new THREE.Mesh(textPlaneGeometry, textMaterial);
 
 		// Position the text plane on the button
-		textMesh.position.set(0, 0, 0.002);  // Slightly above the button surface
-		button1.add(textMesh);
+		textMesh.position.set(0, 0, 0.021);
+		button.add(textMesh);
 
 		// Add the button to the menu
-		menu.add(button1);
+		menu.add(button);
 		console.log("Button created and added to the menu.");
 	}
 
@@ -533,14 +654,18 @@ export class VRControls extends EventDispatcher {
 	}
 
 	onSqueezeStart(controller) {
-		console.log("Squeeze activated", controller);
-		this.isSqueezing = true;
-		this.squeezingController = controller;
-		this.updateRay();
+		if (controller === this.cSecondary) {
+			this.isSqueezing = true;
+			this.squeezingController = controller;
+			this.updateRay();
+		}
+		if (controller === this.cPrimary) {
+			this.squeezingController = controller;
+			console.log('secondary squeeze start');
+		}
 	}
 
 	onSqueezeEnd(controller) {
-		console.log("Squeeze released", controller);
 		this.isSqueezing = false;
 		this.squeezingController = null;
 	}
@@ -578,12 +703,26 @@ export class VRControls extends EventDispatcher {
 		const transformedPosition = this.toControllerScene(controllerPosition, this.squeezingController);
 		const transformedDirection = this.toControllerScene(direction, this.squeezingController);
 
-		//** Joystick control **//
-		const pad = this.squeezingController.inputSource.gamepad;
-		const axes = pad.axes;
-		const joystickValue = axes.length >= 2 ? axes[1] : 0;
-		this.rayLength = THREE.MathUtils.clamp(this.rayLength + joystickValue * 0.1, 0, this.maxRayLength);
 
+		//** Joystick control **//
+		// Update ray length based on the left joystick
+		if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
+			const pad = this.cPrimary.inputSource.gamepad;
+			const axes = pad.axes;
+			console.log(pad)
+			// Check if axes are available
+			if (axes.length >= 4) {
+				// axes 3 = y
+				const leftJoystickY = axes[3];
+				console.log(axes.length)
+				console.log(axes)
+				//minus because otherwise it's inverted
+				// Adjust ray length based on joystick input
+				this.rayLength = THREE.MathUtils.clamp(this.rayLength - leftJoystickY * 0.1, 0, this.maxRayLength);
+			}
+		}
+
+		console.log('raylength', this.rayLength)
 		//** Creation of Ray **//
 		const rayOrigin = controllerPosition.clone();
 		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
@@ -606,10 +745,6 @@ export class VRControls extends EventDispatcher {
 		}
 		this.raySphere.position.copy(endPoint);
 
-
-		//** create position label **//
-		//const annotation = { position: endPoint };
-		//this.createPositionLabel(annotation);
 	}
 
 
@@ -811,6 +946,8 @@ export class VRControls extends EventDispatcher {
 		// Add the line to the scene
 		this.viewer.scene.scene.add(line);
 
+		this.lines.push(line)
+
 		// Store the line for future reference
 		this.areaDrawing = line;
 	}
@@ -846,6 +983,8 @@ export class VRControls extends EventDispatcher {
 
 		// put the label above the point
 		label.position.z += 0.1;
+
+		this.labels.push(label)
 
 		return label
 	}
@@ -891,9 +1030,9 @@ export class VRControls extends EventDispatcher {
 			// Create a label for the line
 			const linelabel = this.createLabel({ start: lastPointPosition, end: newPointPosition }, 'line', distance);
 			this.viewer.scene.scene.add(linelabel);
+			this.lines.push(line)
 		}
 
-		// Store the new point in the points array
 		this.points.push(newPointPosition);
 
 		if (this.points.length > 2) {
@@ -921,19 +1060,24 @@ export class VRControls extends EventDispatcher {
 	}
 
 	onTriggerStart(controller) {
-		// Check if the controller is squeezing
-		if (this.isSqueezing && this.squeezingController === controller) {
-			console.log("Trigger pressed, creating new circle", controller);
-			this.createSphereAndLabel();
+		if (controller === this.cSecondary) {
+			// Check if the controller is squeezing
+			if (this.isSqueezing && this.squeezingController === controller) {
+				console.log("Trigger pressed, creating new circle", controller);
+				this.createSphereAndLabel();
+			}
 		}
 
-		// Check if menu is active
-		if (this.menu) {
-			this.viewer.sceneVR.remove(this.menu);
-			this.menu = null;
-		} else {
-			this.menu = this.createMenu();
-			this.viewer.sceneVR.add(this.menu);
+		if (controller === this.cPrimary) {
+			// Check if menu is active
+			if (this.menu) {
+				this.viewer.sceneVR.remove(this.menu);
+				this.menu = null;
+			} else {
+				this.menu = this.createMenu();
+				this.viewer.sceneVR.add(this.menu);
+			}
+			this.buttonActions["Delete measurements"].call(this);
 		}
 
 		if (this.triggered.size === 0) {
@@ -990,6 +1134,40 @@ export class VRControls extends EventDispatcher {
 		this.scene = scene;
 	}
 
+	distanceSq(x1, y1, x2, y2) {
+		return (x1 - x2) ** 2 + (y1 - y2) ** 2;
+	}
+
+	getGroundHeight(x, y) {
+		// Define your vertices array here
+		const index = new KDBush(this.meshVertices.length);
+
+		// Add each vertex to the KDBush index
+		for (const { x, y } of this.meshVertices) {
+            index.add(x, y);
+        }
+
+        index.finish();
+
+		// Define your query point (x_query, y_query)
+		let x_query = x;
+		let y_query = y;
+
+		// Example radius query
+		const radius = 1; // Adjust the radius as necessary
+		const neighborIds = index.within(x_query, y_query, radius);
+		const neighborItems = neighborIds.map(i => this.meshVertices[i]);
+
+		const neighborZValues = neighborIds.map(i => this.meshVertices[i].z);
+
+		// Compute the average z value
+		const averageZ = neighborZValues.length > 0
+			? neighborZValues.reduce((sum, z) => sum + z, 0) / neighborZValues.length
+			: 0; // Handle case with no neighbors
+
+		return averageZ;
+	}
+
 	getCamera(){
 		let reference = this.viewer.scene.getActiveCamera();
 		let camera = new THREE.PerspectiveCamera();
@@ -1008,7 +1186,24 @@ export class VRControls extends EventDispatcher {
 
 		// Set your custom z-value here
 		camera.position.copy(this.node.position);
-		camera.position.z = 7; // Set this to your desired value
+		camera.position.z = 6;
+		/*
+		const x = this.node.position.x;
+		const y = this.node.position.y;
+		camera.position.z = this.getGroundHeight(x, y) + 1.8;
+		console.log('cam height', camera.position.z)
+		/*
+		const x = this.node.position.x;
+		const y = this.node.position.y;
+		const height = this.getGroundHeight(x, y);
+		if (height) {
+			camera.position.z = height + 1.5; // Set this to your desired value
+		} else {
+			camera.position.z = 5.5; // Default height if no ground height is found
+		}
+		*/
+
+		// console.log('cam heigt', camera.position.z)// Set this to your desired value
 
 		camera.rotation.copy(this.node.rotation);
 		camera.scale.set(scale, scale, scale);
