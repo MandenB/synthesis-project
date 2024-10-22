@@ -37,11 +37,7 @@
         <div id="potree_sidebar_container"></div>
     </div>
 
-    <script type="module">
-		import * as THREE from "../libs/three.js/build/three.module.js";
-		import {PLYLoader} from "../libs/three.js/loaders/PLYLoader.js";
-		import {GLTFLoader} from "../libs/three.js/loaders/GLTFLoader.js"; 
-		
+    <script>
         // Initialize the Potree viewer
         const viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
 
@@ -80,66 +76,6 @@
             );
         });
 		
-		const loader = new GLTFLoader();
-
-		loader.load(Potree.resourcePath + "/models/ground_mesh.glb", (gltf) => {
-			let ground_mesh = gltf.scene;
-
-			// Set ground_mesh position, scale, and rotation as needed
-			ground_mesh.position.set(0,0,0);
-			ground_mesh.scale.set(1, 1, 1);   // Adjust this if the ground_mesh needs to be resized
-			ground_mesh.rotation.set(0, 0, 0); // Adjust if necessary
-
-			// Add the ground_mesh to the scene
-			viewer.scene.scene.add(ground_mesh);
-
-			// Optional: Compute and log bounding box
-			let bbox = new THREE.Box3().setFromObject(ground_mesh);
-			console.log("GLB ground_mesh Bounding Box:");
-			console.log("Min:", bbox.min);
-			console.log("Max:", bbox.max);
-			
-			console.log("GLB ground_mesh successfully loaded and added to the scene.");
-		});
-
-		// Add lighting to the scene
-		{
-			const directional = new THREE.DirectionalLight(0xffffff, 1.0);
-			directional.position.set(10, 10, 10);
-			directional.lookAt(0, 0, 0);
-
-			const ambient = new THREE.AmbientLight(0x555555);
-
-			viewer.scene.scene.add(directional);
-			viewer.scene.scene.add(ambient);
-		}
-		
-		
-		const loader2 = new GLTFLoader();
-		loader2.load(Potree.resourcePath + "/models/non_ground_mesh.glb", (gltf) => {
-			console.log("started walls")
-			let wall_mesh = gltf.scene;
-
-			// Set model position, scale, and rotation for the second model
-			wall_mesh.position.set(0, 0, 0); // Adjust as needed for positioning
-			wall_mesh.scale.set(1, 1, 1);      // Scale it as necessary
-			wall_mesh.rotation.set(0, 0, 0); // Example rotation
-
-			// Add the second model to the scene
-			viewer.scene.scene.add(wall_mesh);
-
-			// Compute and log bounding box for the second model
-			let bbox2 = new THREE.Box3().setFromObject(wall_mesh);
-			console.log("GLB Model 2 Bounding Box:");
-			console.log("Min:", bbox2.min);
-			console.log("Max:", bbox2.max);
-				
-			console.log("GLB Model 2 successfully loaded and added to the scene.");
-		});
-		
-
-		
-
     </script>
 </body>
 </html>

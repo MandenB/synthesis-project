@@ -6,6 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="12a1ad9b-95c4-412f-8e54-59c466be6d3c" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/vr_vienna.html" beforeDir="false" afterPath="$PROJECT_DIR$/examples/vr_vienna.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/navigation/VRControls.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/navigation/VRControls.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,6 +72,8 @@
       <workItem from="1729154553743" duration="64000" />
       <workItem from="1729154663398" duration="2612000" />
       <workItem from="1729157321579" duration="19169000" />
+      <workItem from="1729511791727" duration="10679000" />
+      <workItem from="1729541262144" duration="97000" />
     </task>
     <servers />
   </component>

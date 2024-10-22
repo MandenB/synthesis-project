@@ -6,6 +6,8 @@ import {Line2} from "../../libs/three.js/lines/Line2.js";
 import {LineGeometry} from "../../libs/three.js/lines/LineGeometry.js";
 import {LineMaterial} from "../../libs/three.js/lines/LineMaterial.js";
 import {TextSprite} from "../TextSprite.js";
+import { GLTFLoader } from "../../libs/three.js/loaders/GLTFLoader.js";
+
 
 let fakeCam = new THREE.PerspectiveCamera();
 
@@ -331,6 +333,8 @@ export class VRControls extends EventDispatcher {
 		this.createPositionLabel = createPositionLabel;
 		this.points = [];
 		this.createTextSprite = TextSprite;
+		this.gltfloader = new GLTFLoader();
+		this.menu = null;
 
 		this.labelScene = new THREE.Scene();
 
@@ -358,7 +362,135 @@ export class VRControls extends EventDispatcher {
 		this.mode_translate = new TranslationMode();
 		this.mode_rotScale = new RotScaleMode();
 		this.setMode(this.mode_fly);
+		// this.inputGroundMeshes();
+		// this.inputwallmeshes();
 	}
+
+	inputGroundMeshes(){
+		const loader = new GLTFLoader();
+
+		loader.load("../meshes/ground_mesh.glb", function (gltf) {
+			// Add the ground_mesh to the scene
+			this.viewer.scene.scene.add(gltf.scene);
+
+			console.log("GLB ground_mesh successfully loaded and added to the scene.");
+		})
+		loader.load("../meshes/non_ground_mesh.glb", function (gltf) {
+			this.viewer.scene.scene.add(gltf.scene);
+		})
+
+		// Add lighting to the scene
+		{
+			const directional = new THREE.DirectionalLight(0xffffff, 1.0);
+			directional.position.set(10, 10, 10);
+			directional.lookAt(0, 0, 0);
+
+			const ambient = new THREE.AmbientLight(0x555555);
+
+			this.viewer.scene.scene.add(directional);
+			this.viewer.scene.scene.add(ambient);
+		}
+	}
+
+	inputwallmeshes(){
+		const loader = new GLTFLoader();
+
+		loader.load("../meshes/non_ground_mesh.glb", (glb) => {
+			let wall_mesh = glb.scene;
+
+			// Set model position, scale, and rotation for the second model
+			wall_mesh.position.set(0, 0, 0); // Adjust as needed for positioning
+			wall_mesh.scale.set(1, 1, 1);      // Scale it as necessary
+			wall_mesh.rotation.set(0, 0, 0); // Example rotation
+
+			// Add the second model to the scene
+			this.viewer.scene.scene.add(wall_mesh);
+
+			// Compute and log bounding box for the second model
+			let bbox2 = new THREE.Box3().setFromObject(wall_mesh);
+			console.log("GLB Model 2 Bounding Box:");
+			console.log("Min:", bbox2.min);
+			console.log("Max:", bbox2.max);
+
+			console.log("GLB Model 2 successfully loaded and added to the scene.");
+		});
+	}
+
+	createMenu() {
+		let menu = new THREE.Object3D();
+		let geometry = new THREE.BoxGeometry(1, 0.2, 0.001);
+		let material = new THREE.MeshBasicMaterial({ color: 0xD3D3D3 });  // Use a visible color
+		let mesh = new THREE.Mesh(geometry, material);
+		menu.add(mesh);
+		menu.position.set(0, 2, -1.5);  // Ensure this is in the camera's view
+
+		this.createMenuButton(menu);
+
+		return menu;
+	}
+
+	createMenuButton(menu) {
+		let button1 = new THREE.Object3D();
+
+		// Create the button geometry (Box)
+		let geometry = new THREE.BoxGeometry(0.1, 0.1, 0.001);
+		let material = new THREE.MeshBasicMaterial({ color: 0xA9A9A9 });  // Use a visible color
+		let mesh = new THREE.Mesh(geometry, material);
+		button1.add(mesh);
+
+		// Position the button manually (you can tweak this)
+		button1.position.set(0, 0, 0.001);
+
+		// Create a 2D canvas for the text
+		let canvas = document.createElement('canvas');
+		let context = canvas.getContext('2d');
+
+		// Set canvas size and text properties
+		canvas.width = 256;  // Higher resolution gives better text clarity
+		canvas.height = 64;
+		context.font = '28px Arial';  // Customize the font style and size
+		context.textAlign = 'center';  // Center-align text
+		context.textBaseline = 'middle';  // Vertically center the text
+
+		// Define the text strings
+		const line1 = 'Delete';
+		const line2 = 'measurements';
+
+		// Set the text color
+		context.fillStyle = 'white';  // Text fill color
+
+		// Set the stroke color and width for the outline
+		context.strokeStyle = 'black';  // Outline color
+		context.lineWidth = 5;  // Outline thickness
+
+		// Draw the text outline first
+		context.strokeText(line1, canvas.width / 2, canvas.height / 2 - 10);  // First line
+		context.strokeText(line2, canvas.width / 2, canvas.height / 2 + 20);  // Second line
+
+		// Now fill the text with white
+		context.fillText(line1, canvas.width / 2, canvas.height / 2 - 10);  // First line
+		context.fillText(line2, canvas.width / 2, canvas.height / 2 + 20);  // Second line
+
+		// Create a texture from the canvas
+		let texture = new THREE.CanvasTexture(canvas);
+
+		// Create a material for the text
+		let textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+
+		// Create a plane geometry for the text
+		let textPlaneGeometry = new THREE.PlaneGeometry(0.1, 0.05);  // Adjust size to fit button
+		let textMesh = new THREE.Mesh(textPlaneGeometry, textMaterial);
+
+		// Position the text plane on the button
+		textMesh.position.set(0, 0, 0.002);  // Slightly above the button surface
+		button1.add(textMesh);
+
+		// Add the button to the menu
+		menu.add(button1);
+		console.log("Button created and added to the menu.");
+	}
+
+
 
 	setupController(xr, controllerModelFactory, index) {
 		let controller = xr.getController(index);
@@ -692,9 +824,7 @@ export class VRControls extends EventDispatcher {
 		} else if (type === 'line') {
 			labelText = `${Unit} m`;
 		} else if (type === 'area') {
-			const { x, y, z } = object.position;
 			labelText = `${Unit} m^2`;
-
 		}
 
 		else {
@@ -797,6 +927,15 @@ export class VRControls extends EventDispatcher {
 			this.createSphereAndLabel();
 		}
 
+		// Check if menu is active
+		if (this.menu) {
+			this.viewer.sceneVR.remove(this.menu);
+			this.menu = null;
+		} else {
+			this.menu = this.createMenu();
+			this.viewer.sceneVR.add(this.menu);
+		}
+
 		if (this.triggered.size === 0) {
 			this.setMode(this.mode_fly);
 		} else if (this.triggered.size === 1) {
@@ -804,7 +943,8 @@ export class VRControls extends EventDispatcher {
 		} else if (this.triggered.size === 2) {
 			this.setMode(this.mode_rotScale);
 		}
-		}
+	}
+
 
 	onTriggerEnd(controller){
 		this.triggered.delete(controller);
