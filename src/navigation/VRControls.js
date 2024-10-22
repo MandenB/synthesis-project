@@ -332,13 +332,14 @@ export class VRControls extends EventDispatcher {
 		this.maxRayLength = 10; // Initialize maxRayLength
 		this.createPositionLabel = createPositionLabel;
 		this.createTextSprite = TextSprite;
-		this.gltfloader = new GLTFLoader();
+		// this.gltfloader = new GLTFLoader();
 		this.menu = null;
 		this.meshVertices = [];
 
 		this.points = [];
 		this.lines = [];
 		this.labels = [];
+		this.spheres = [];
 
 		this.labelScene = new THREE.Scene();
 
@@ -371,28 +372,46 @@ export class VRControls extends EventDispatcher {
 
 		this.buttonActions = {
 			"Delete measurements": function() {
-				// Remove all points from the scene
-				for (let point of this.points) {
-					this.viewer.scene.scene.remove(point);
-				}
+				// Remove each sphere from the scene
+				this.spheres.forEach(sphere => {
+					sphere.geometry.dispose();
+					sphere.material.dispose()
+					this.viewer.scene.scene.remove(sphere);
+				});
+
 				// Clear the points array
 				this.points = [];
 
-				// Remove all lines from the scene
-				for (let line of this.lines) {
+				// Remove each line from the scene
+				this.lines.forEach(line => {
 					this.viewer.scene.scene.remove(line);
-				}
+				});
+
 				// Clear the lines array
 				this.lines = [];
 
-				// Remove all labels from the scene
-				for (let label of this.labels) {
+				// Remove each label from the scene
+				this.labels.forEach(label => {
 					this.viewer.scene.scene.remove(label);
-				}
+				});
+
 				// Clear the labels array
 				this.labels = [];
 
-				console.log("Measurements deleted");
+				// Clear the points array
+				this.points = [];
+
+				// Remove the area drawing if it exists
+				if (this.areaDrawing) {
+					this.viewer.scene.scene.remove(this.areaDrawing);
+					this.areaDrawing = null;
+				}
+
+				// Remove the area label if it exists
+				if (this.areaLabel) {
+					this.viewer.scene.scene.remove(this.areaLabel);
+					this.areaLabel = null;
+				}
 			},
 			"Button 2": function() {
 				// Logic for Button 2
@@ -422,10 +441,8 @@ export class VRControls extends EventDispatcher {
 			// this.viewer.scene.scene.add(gltf.scene);
 			// this.viewer.scene.scene.add(gltf.scene);
 
-			console.log("GLB ground_mesh successfully loaded and added to the scene.");
 			//bbox for ground mesh
 			const bbox = new THREE.Box3().setFromObject(this.groundMesh);
-			console.log("GLB Model 1 Bounding Box:", bbox);
 
 			const geometry = gltf.scene.children[0].geometry; // Adjust based on your mesh structure
 			const positionAttribute = geometry.attributes.position;
@@ -454,28 +471,28 @@ export class VRControls extends EventDispatcher {
 
 	}
 
-	inputwallmeshes(){
-		const loader = new GLTFLoader();
+	MenuRaycaster(controller) {
+		// Create a raycaster to detect menu button interactions
+		if (!this.menu) {
+			return;
+		}
+		let raycaster = new THREE.Raycaster();
+		let controllerPosition = new THREE.Vector3();
+		const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(controller.quaternion).normalize();
+		controller.getWorldPosition(controllerPosition);
+		raycaster.set(controllerPosition, direction);
 
-		loader.load("../meshes/non_ground_mesh.glb", (glb) => {
-			let wall_mesh = glb.scene;
-
-			// Set model position, scale, and rotation for the second model
-			wall_mesh.position.set(0, 0, 0); // Adjust as needed for positioning
-			wall_mesh.scale.set(1, 1, 1);      // Scale it as necessary
-			wall_mesh.rotation.set(0, 0, 0); // Example rotation
-
-			// Add the second model to the scene
-			this.viewer.scene.scene.add(wall_mesh);
-
-			// Compute and log bounding box for the second model
-			let bbox2 = new THREE.Box3().setFromObject(wall_mesh);
-			console.log("GLB Model 2 Bounding Box:");
-			console.log("Min:", bbox2.min);
-			console.log("Max:", bbox2.max);
-
-			console.log("GLB Model 2 successfully loaded and added to the scene.");
-		});
+		// Check for intersections with the menu buttons
+		let intersects = raycaster.intersectObjects(this.menu, true);
+		console.log('raycasting')
+		console.log(intersects)
+		if (intersects.length > 0) {
+			let button = intersects[0].object.parent;
+			let labelText = button.children[1].material.map.text;
+			if (this.buttonActions[labelText]) {
+				this.buttonActions[labelText].call(this);
+			}
+		}
 	}
 
 	createMenu() {
@@ -608,7 +625,6 @@ export class VRControls extends EventDispatcher {
 
 		// Add the button to the menu
 		menu.add(button);
-		console.log("Button created and added to the menu.");
 	}
 
 
@@ -661,7 +677,6 @@ export class VRControls extends EventDispatcher {
 		}
 		if (controller === this.cPrimary) {
 			this.squeezingController = controller;
-			console.log('secondary squeeze start');
 		}
 	}
 
@@ -709,20 +724,16 @@ export class VRControls extends EventDispatcher {
 		if (this.cPrimary && this.cPrimary.inputSource && this.cPrimary.inputSource.gamepad) {
 			const pad = this.cPrimary.inputSource.gamepad;
 			const axes = pad.axes;
-			console.log(pad)
 			// Check if axes are available
 			if (axes.length >= 4) {
 				// axes 3 = y
 				const leftJoystickY = axes[3];
-				console.log(axes.length)
-				console.log(axes)
 				//minus because otherwise it's inverted
 				// Adjust ray length based on joystick input
 				this.rayLength = THREE.MathUtils.clamp(this.rayLength - leftJoystickY * 0.1, 0, this.maxRayLength);
 			}
 		}
 
-		console.log('raylength', this.rayLength)
 		//** Creation of Ray **//
 		const rayOrigin = controllerPosition.clone();
 		const rayDirection = direction.clone().multiplyScalar(this.rayLength);
@@ -990,80 +1001,77 @@ export class VRControls extends EventDispatcher {
 	}
 
 	createSphereAndLabel() {
-		// Create a new circle mesh
-		const newCircle = new THREE.Mesh(
-			new THREE.SphereGeometry(0.01, 32, 32),
-			new THREE.MeshBasicMaterial({ color: 0xff0000 })
-		);
+    // Create a new circle mesh
+    const newCircle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.01, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
 
-		newCircle.position.copy(this.raySphere.position);
-		const transformedPosition = this.toScene(newCircle.position);
-		newCircle.position.copy(transformedPosition);
+    newCircle.position.copy(this.raySphere.position);
+    const transformedPosition = this.toScene(newCircle.position);
+    newCircle.position.copy(transformedPosition);
 
-		newCircle.position.z -= 0.8 * this.node.scale.x;
+    newCircle.position.z -= 0.8 * this.node.scale.x;
 
-		// Add the new circle to the scene
-		this.viewer.scene.scene.add(newCircle);
-		console.log('New circle created at:', newCircle.position);
+    // Add the new circle to the scene
+    this.viewer.scene.scene.add(newCircle);
 
-		// Get the position of the new point
-		const newPointPosition = newCircle.position.clone();
+	this.spheres.push(newCircle);
 
-		// Create a label for the new point
-		const pointlabel = this.createLabel(newCircle, 'point');
-		this.viewer.scene.scene.add(pointlabel)
+    // Get the position of the new point
+    const newPointPosition = newCircle.position.clone();
 
-		// If there's a previous point, create a line and calculate the distance
-		if (this.points.length > 0) {
-			const lastPointPosition = this.points[this.points.length - 1];
+    // Add the new point position to the points array
+    this.points.push(newPointPosition);
 
-			// Create a line between the last point and the new point
-			const geometry = new THREE.BufferGeometry().setFromPoints([lastPointPosition, newPointPosition]);
-			const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 });
-			const line = new THREE.Line(geometry, material);
-			this.viewer.scene.scene.add(line);
+    // Create a label for the new point
+    const pointLabel = this.createLabel(newCircle, 'point');
+    this.viewer.scene.scene.add(pointLabel);
 
-			// Calculate the distance between the last point and the new point
-			const distance = this.calculateDistance(lastPointPosition, newPointPosition);
-			console.log('Distance between points:', distance);
+    // If there's a previous point, create a line and calculate the distance
+    if (this.points.length > 1) {
+        const lastPointPosition = this.points[this.points.length - 2];
 
-			// Create a label for the line
-			const linelabel = this.createLabel({ start: lastPointPosition, end: newPointPosition }, 'line', distance);
-			this.viewer.scene.scene.add(linelabel);
-			this.lines.push(line)
-		}
+        // Create a line between the last point and the new point
+        const geometry = new THREE.BufferGeometry().setFromPoints([lastPointPosition, newPointPosition]);
+        const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 });
+        const line = new THREE.Line(geometry, material);
+        this.viewer.scene.scene.add(line);
 
-		this.points.push(newPointPosition);
+        // Calculate the distance between the last point and the new point
+        const distance = this.calculateDistance(lastPointPosition, newPointPosition);
 
-		if (this.points.length > 2) {
-			const area = this.calculateArea(this.points);
-			console.log('Area of the polygon:', area);
-			this.colorArea(this.points, 0x0000ff);
+        // Create a label for the line
+        const lineLabel = this.createLabel({ start: lastPointPosition, end: newPointPosition }, 'line', distance);
+        this.viewer.scene.scene.add(lineLabel);
+        this.lines.push(line);
+    }
 
-			// Remove existing label if it exists
-			if (this.areaLabel) {
-				this.viewer.scene.scene.remove(this.areaLabel);
-			}
+    // If there are more than 2 points, calculate the area
+    if (this.points.length > 2) {
+        const area = this.calculateArea(this.points);
+        this.colorArea(this.points, 0x0000ff);
 
-			// Calculate the centroid of the area for label positioning
-			const centroid = new THREE.Vector3();
-			this.points.forEach(point => centroid.add(point));
-			centroid.divideScalar(this.points.length);
+        // Remove existing label if it exists
+        if (this.areaLabel) {
+            this.viewer.scene.scene.remove(this.areaLabel);
+        }
 
-			const areaLabel = this.createLabel({ position: centroid }, 'area', area);
+        // Calculate the centroid of the area for label positioning
+        const centroid = new THREE.Vector3();
+        this.points.forEach(point => centroid.add(point));
+        centroid.divideScalar(this.points.length);
 
-			this.viewer.scene.scene.add(areaLabel)
-
-			this.areaLabel = areaLabel;
-		}
-
-	}
+        const areaLabel = this.createLabel({ position: centroid }, 'area', area);
+        this.viewer.scene.scene.add(areaLabel);
+        this.areaLabel = areaLabel;
+    }
+}
 
 	onTriggerStart(controller) {
 		if (controller === this.cSecondary) {
 			// Check if the controller is squeezing
 			if (this.isSqueezing && this.squeezingController === controller) {
-				console.log("Trigger pressed, creating new circle", controller);
 				this.createSphereAndLabel();
 			}
 		}
@@ -1076,8 +1084,9 @@ export class VRControls extends EventDispatcher {
 			} else {
 				this.menu = this.createMenu();
 				this.viewer.sceneVR.add(this.menu);
+				this.MenuRaycaster(controller);
 			}
-			this.buttonActions["Delete measurements"].call(this);
+			// this.buttonActions["Delete measurements"].call(this);
 		}
 
 		if (this.triggered.size === 0) {
@@ -1272,6 +1281,7 @@ export class VRControls extends EventDispatcher {
 
 		// }
 		this.updateRay();
+		this.MenuRaycaster(this.cPrimary);
 		this.mode.update(this, delta);
 	}
 };
