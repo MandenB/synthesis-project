@@ -501,7 +501,7 @@ export class VRControls extends EventDispatcher {
 		let material = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.7 });
 		let mesh = new THREE.Mesh(geometry, material);
 		menu.add(mesh);
-		menu.position.set(0, 2, -1.5);
+		menu.position.set(0, 1, -1.5);
 
 		// Create menu title
 		this.createMenuTitle(menu);
@@ -1134,7 +1134,7 @@ export class VRControls extends EventDispatcher {
 
 	onStart(){
 		// Define your fixed XYZ position here
-		let fixedPosition = new THREE.Vector3(5700, 339900, 7); // Replace with your desired x, y, z values
+		let fixedPosition = new THREE.Vector3(5486, 339896, 6); // Replace with your desired x, y, z values
 
 		// You don't need to compute position from the viewer.scene.view, just use the fixed position
 		this.node.position.copy(fixedPosition);
