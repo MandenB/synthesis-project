@@ -487,7 +487,7 @@ export class VRControls extends EventDispatcher {
 			const intersects3 = raycaster.intersectObjects(this.menu.children);
 			console.log('intersection')
 			if (intersects3.length > 0 && this.menustate) {
-				console.log('& trigger')
+				console.log('intersection object:', intersects3)
 				this.buttonActions["Delete measurements"].call(this)
 			}
 		}
@@ -507,11 +507,11 @@ export class VRControls extends EventDispatcher {
 		this.createMenuTitle(menu);
 
 		// Create individual buttons with specific labels, positioned higher
-		this.createMenuButton(menu, "Delete measurements", -0.4, 0.05); // Adjusted yOffset to position higher
-		this.createMenuButton(menu, "Button 2", 0, 0.05); // Adjusted yOffset to position higher
-		this.createMenuButton(menu, "Button 3", 0.4, 0.05); // Adjusted yOffset to position higher
-		this.createMenuButton(menu, "Button 4", -0.4, -0.1); // Adjusted yOffset to position higher
-		this.createMenuButton(menu, "Button 5", 0.4, -0.1); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Delete measurements", -0.3, 0.05); // Adjusted yOffset to position higher
+		this.createMenuButton(menu, "Dynamic height (under construction)", 0.3, 0.05); // Adjusted yOffset to position higher
+		// this.createMenuButton(menu, "Button 3", 0.4, 0.05); // Adjusted yOffset to position higher
+		// this.createMenuButton(menu, "Button 4", -0.4, -0.1); // Adjusted yOffset to position higher
+		// this.createMenuButton(menu, "Button 5", 0.4, -0.1); // Adjusted yOffset to position higher
 
 		return menu;
 	}
@@ -558,7 +558,7 @@ export class VRControls extends EventDispatcher {
 		let button = new THREE.Object3D();
 
 		// Create the button geometry with some depth for a 3D look
-		let geometry = new THREE.BoxGeometry(0.35, 0.1, 0.02); // Reduced button size for better fit
+		let geometry = new THREE.BoxGeometry(0.5, 0.15, 0.02); // Reduced button size for better fit
 		let material = new THREE.MeshPhongMaterial({
 			color: 0x333333, // Dark color for the button
 			shininess: 80,
@@ -597,14 +597,26 @@ export class VRControls extends EventDispatcher {
 		const words = labelText.split(" ");
 		const line1 = words[0];
 		const line2 = words[1] || "";
+		const line3 = words[2] || "";
+		const line4 = words[3] || "";
 
 		// Draw the text
-		context.strokeText(line1, canvas.width / 2, canvas.height / 3);
-		context.fillText(line1, canvas.width / 2, canvas.height / 3);
+		context.strokeText(line1, canvas.width / 2, canvas.height / 5);
+		context.fillText(line1, canvas.width / 2, canvas.height / 5);
 
 		if (line2) {
-			context.strokeText(line2, canvas.width / 2, 2 * canvas.height / 3);
-			context.fillText(line2, canvas.width / 2, 2 * canvas.height / 3);
+			context.strokeText(line2, canvas.width / 2, 2 * canvas.height / 5);
+			context.fillText(line2, canvas.width / 2, 2 * canvas.height / 5);
+		}
+
+		if (line3) {
+			context.strokeText(line3, canvas.width / 2, 3 * canvas.height / 5);
+			context.fillText(line3, canvas.width / 2, 3 * canvas.height / 5);
+		}
+
+		if (line4) {
+			context.strokeText(line4, canvas.width / 2, 4 * canvas.height / 5);
+			context.fillText(line4, canvas.width / 2, 4 * canvas.height / 5);
 		}
 
 		// Create a texture from the canvas
@@ -1105,6 +1117,10 @@ export class VRControls extends EventDispatcher {
 
 	onTriggerEnd(controller){
 		this.triggered.delete(controller);
+
+		if (controller === this.cPrimary) {
+			this.menustate = null;
+		}
 
 		if(this.triggered.size === 0){
 			this.setMode(this.mode_fly);
