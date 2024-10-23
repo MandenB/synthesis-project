@@ -335,7 +335,7 @@ export class VRControls extends EventDispatcher {
 		// this.gltfloader = new GLTFLoader();
 		this.menu = null;
 		this.meshVertices = [];
-
+		this.menustate = null;
 		this.points = [];
 		this.lines = [];
 		this.labels = [];
@@ -482,15 +482,13 @@ export class VRControls extends EventDispatcher {
 		controller.getWorldPosition(controllerPosition);
 		raycaster.set(controllerPosition, direction);
 
-		// Check for intersections with the menu buttons
-		let intersects = raycaster.intersectObjects(this.menu, true);
-		console.log('raycasting')
-		console.log(intersects)
-		if (intersects.length > 0) {
-			let button = intersects[0].object.parent;
-			let labelText = button.children[1].material.map.text;
-			if (this.buttonActions[labelText]) {
-				this.buttonActions[labelText].call(this);
+		// Check if 'this.menu' exists before running the raycast
+		if (typeof this.menu !== 'undefined' && this.menu) {
+			const intersects3 = raycaster.intersectObjects(this.menu.children);
+			console.log('intersection')
+			if (intersects3.length > 0 && this.menustate) {
+				console.log('& trigger')
+				this.buttonActions["Delete measurements"].call(this)
 			}
 		}
 	}
@@ -677,7 +675,16 @@ export class VRControls extends EventDispatcher {
 		}
 		if (controller === this.cPrimary) {
 			this.squeezingController = controller;
+			if (this.menu){
+				this.viewer.sceneVR.remove(this.menu);
+				this.menu = null;
+			}else {
+				this.menu = this.createMenu();
+				this.viewer.sceneVR.add(this.menu);
+				this.MenuRaycaster(controller);
+			}
 		}
+
 	}
 
 	onSqueezeEnd(controller) {
@@ -755,6 +762,8 @@ export class VRControls extends EventDispatcher {
 			this.viewer.sceneVR.add(this.raySphere);
 		}
 		this.raySphere.position.copy(endPoint);
+
+
 
 	}
 
@@ -1079,12 +1088,7 @@ export class VRControls extends EventDispatcher {
 		if (controller === this.cPrimary) {
 			// Check if menu is active
 			if (this.menu) {
-				this.viewer.sceneVR.remove(this.menu);
-				this.menu = null;
-			} else {
-				this.menu = this.createMenu();
-				this.viewer.sceneVR.add(this.menu);
-				this.MenuRaycaster(controller);
+				this.menustate = true;
 			}
 			// this.buttonActions["Delete measurements"].call(this);
 		}
