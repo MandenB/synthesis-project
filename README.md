@@ -1,4 +1,5 @@
-# VR Enhancements for Potree: Interactive Point Cloud Navigation and Measurement Tools
+# Explorative Point Cloud Virtual Reality: Immersive Visual Insight
+# VR additions to Potree
 This project extends the Potree WebGL-based point cloud renderer with enhanced Virtual Reality (VR) functionalities to provide improved navigation and measurement experiences. Built by a group of five students as part of the Geomatics Synthesis Project at TU Delft and in collaboration with GeoDelta, this project aims to address the research question:
 
 "How does the use of Virtual Reality, compared to GeoDelta's Omnibase Multi-view, affect user perception, interaction, and measurement accuracy in point cloud environments?"
@@ -23,10 +24,11 @@ Follow Potree’s installation instructions with the following setup:
 Note: Due to an unsolved bug you must enter and exit the VR environment once before re-entering.
 
 # VR Interactions and Controls
-- **Movement**: Use the left joystick to rotate and the right joystick to move forward/backward. Adjust movement speed as needed for comfort.
-- **Raycasting for Measurements**: Cast a ray by holding the right controller's button. Adjust the ray length using the left joystick (up/down). Press the controller's main button to place points, forming lines and polygons.
-- **Deleting Measurements**: Open the menu by pressing the left controller’s inner button, then select "Delete Measurements" to clear placed elements.
-Tip: To measure areas accurately, place points in a clockwise or counter-clockwise order.
+- **Movement**: When entering VR, first test the movement controls. With the left joystick (rotation) and the right one (translation), test both the speed and getting used to the movement inside the point cloud, in case the user wants to change the velocity. Once the movement is intuitive for the user, the other functionalities can be tested out.
+- **Making Measurements**: With the inner buttons on the side of the controller, the user can either prompt a menu to pop-up (using the left inner button) or a ray to be casted (right inner button). The menu is not needed yet at this point. Therefore, start by casting a ray. By pressing and holding the inner right button, the user can cast a ray that will follow the right controller around in the scene. Therefore, allowing the user to place the ray anywhere in the point cloud. At the same time, the user can also adjust the length of the ray being caste by simply moving the rotation/left joystick up and down, changing the size of the ray (easily visualized by the red dot at the end of the line). Once the user finds the ray length optimal and is ready to place a point, simply press the big button at the front of the controller with the index finger. This will now place a button inside the scene with a label and its coordinates. If the user keeps holding the raycasting button, it can produce more points, resulting in lines and eventually in polygons of any desired shape and size. In order to obtain an accurate area result, we recommend following either a clockwise or anti-clockwise point positioning, instead of making polygons that contain random positioning and possible line intersections.
+- **Deleting Measurements**: Now that the user already has its polygon and area made, they can choose to delete this measurement. To do so, just press the inner left button (menu button), to prompt the appearance of a menu interface. In order to delete the measurements, just point the left controller at the "Delete Measurements" notification button (inside the menu) and press the frontal button on the left controller. If aiming correctly at the button, the measurements will be deleted and the user can restart again with any new points, lines or areas. Close the menu label by pressing again the left inner button (menu button). This time, there is no need to hold down the menu button for the button to stay in the scene, a simple button trigger makes it appear and disappear.
+Note: The measurments do not interact with the point cloud in any way. The points are added to the scene. 
+![vr_controller_help1](https://github.com/user-attachments/assets/213e6634-7f2b-4ea5-9707-ea4cfb9b88c7)
 
 # New Implementations
 This project builds upon Potree’s source code, modifying VRControls.js to include the following main new functions:
@@ -37,16 +39,20 @@ This project builds upon Potree’s source code, modifying VRControls.js to incl
 - **createLabel**: Enhances spatial awareness by coloring polygons and adding labels.
 - **createMenu**: Generates a 3D menu interface for easy interaction.
 
+
 # Future Work
 Future enhancements could include:
 
-- **Dynamic Height**: Keeps users at a human-eye level above the ground for natural navigation.
-- **Object Collision**: Prevents users from walking through solid objects, improving realism.
-- **Buttons**: The use of buttons for various functions, instead or in addition to the menu. 
+- **Dynamic Height**
+- **Object Collision**
+- **Buttons**
+- **Point Cloud Interaction**
 
 # Limitations
-The current setup may have VR stability and performance issues after extended use.
-Full point-cloud interaction, such as collision detection and dynamic height adjustments, are still under development.
+- The current setup may have VR stability and performance issues after extended use.
+- Full point-cloud interaction, such as collision detection and dynamic height adjustments, are not included.
+- The controls may switch controller when re-entering VR.
+- When first entering VR, you will not be placed at the correct height. You must exit and re-enter the first time. 
 
 # Acknowledgements
 This project was developed for the Geomatics Synthesis Project at TU Delft in collaboration with GeoDelta. Special thanks to our supervisors and mentors for their guidance.
