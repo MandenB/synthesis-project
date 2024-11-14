@@ -52,7 +52,8 @@ Future enhancements could include:
 - The current setup may have VR stability and performance issues after extended use.
 - Full point-cloud interaction, such as collision detection and dynamic height adjustments, are not included.
 - The controls may switch controller when re-entering VR.
-- When first entering VR, you will not be placed at the correct height. You must exit and re-enter the first time. 
+- When first entering VR, you will not be placed at the correct height. You must exit and re-enter the first time.
+- This was tested using Meta Quest 3.
 
 # Acknowledgements
 This project was developed for the Geomatics Synthesis Project at TU Delft in collaboration with GeoDelta. Special thanks to our supervisors and mentors for their guidance.
